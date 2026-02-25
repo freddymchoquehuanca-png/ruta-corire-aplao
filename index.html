@@ -1,0 +1,1292 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Control Ruta Corire–Aplao</title>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap');
+
+:root {
+  --bg:#080c10; --s1:#0e1318; --s2:#141a22; --s3:#1c2430;
+  --border:#243040; --border2:#2e3d50;
+  --corire:#3b9eff; --corire-dim:rgba(59,158,255,.15);
+  --aplao:#ff9a3b;  --aplao-dim:rgba(255,154,59,.15);
+  --mamas:#3bff8a;  --mamas-dim:rgba(59,255,138,.1);
+  --red:#ff4757;    --red-dim:rgba(255,71,87,.15);
+  --yellow:#ffd32a; --yellow-dim:rgba(255,211,42,.12);
+  --text:#d8e8f8; --muted:#5a7a9a; --muted2:#8aabcc;
+  --fd:'Barlow Condensed',sans-serif;
+  --fb:'Barlow',sans-serif;
+  --fm:'JetBrains Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--fb);background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+
+/* ── SETUP SCREEN ── */
+#setup-screen{
+  position:fixed;inset:0;background:var(--bg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  z-index:2000;padding:20px;overflow-y:auto;
+}
+.setup-logo{font-family:var(--fd);font-size:42px;font-weight:800;letter-spacing:3px;text-align:center;margin-bottom:4px}
+.setup-logo .c{color:var(--corire)} .setup-logo .a{color:var(--aplao)}
+.setup-sub{font-family:var(--fd);font-size:12px;letter-spacing:5px;color:var(--muted);text-align:center;margin-bottom:32px}
+.setup-card{background:var(--s2);border:1px solid var(--border2);border-radius:16px;padding:28px;width:100%;max-width:480px}
+.setup-card h2{font-family:var(--fd);font-size:17px;font-weight:700;letter-spacing:2px;color:var(--muted2);margin-bottom:6px}
+.setup-card p{font-size:12px;color:var(--muted);margin-bottom:20px;line-height:1.6}
+.step-badge{display:inline-block;background:var(--corire-dim);color:var(--corire);font-family:var(--fd);font-size:11px;font-weight:700;letter-spacing:1px;padding:3px 10px;border-radius:4px;margin-bottom:12px}
+.sep{border:none;border-top:1px solid var(--border);margin:20px 0}
+.note-box{background:var(--yellow-dim);border:1px solid rgba(255,211,42,.3);border-radius:8px;padding:12px;font-size:11px;color:var(--yellow);line-height:1.6;margin-bottom:16px}
+.note-box strong{display:block;margin-bottom:4px;font-size:12px}
+
+/* ── LOGIN SCREEN ── */
+#login-screen{
+  position:fixed;inset:0;background:var(--bg);
+  display:none;flex-direction:column;align-items:center;justify-content:center;
+  z-index:1000;padding:24px;
+}
+.login-logo{font-family:var(--fd);font-size:48px;font-weight:800;letter-spacing:3px;text-align:center;margin-bottom:4px}
+.login-logo .c{color:var(--corire)} .login-logo .a{color:var(--aplao)}
+.login-sub{font-family:var(--fd);font-size:12px;letter-spacing:6px;color:var(--muted);text-align:center;margin-bottom:40px}
+.login-card{background:var(--s2);border:1px solid var(--border2);border-radius:16px;padding:28px;width:100%;max-width:380px}
+.login-card h2{font-family:var(--fd);font-size:18px;font-weight:700;letter-spacing:2px;color:var(--muted2);margin-bottom:20px;text-align:center}
+.roles-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
+.role-btn{
+  padding:14px 8px;border-radius:10px;border:2px solid var(--border2);
+  background:var(--s3);color:var(--text);cursor:pointer;text-align:center;
+  transition:.2s;font-family:var(--fd);font-size:14px;font-weight:700;letter-spacing:1px;
+}
+.role-btn .ri{font-size:22px;display:block;margin-bottom:3px}
+.role-btn.selected{border-color:var(--corire);background:var(--corire-dim);color:var(--corire)}
+
+/* ── FORM ELEMENTS ── */
+select,input[type=text],input[type=number],input[type=date],input[type=time],input[type=password]{
+  width:100%;background:var(--bg);border:1px solid var(--border2);border-radius:8px;
+  color:var(--text);font-family:var(--fm);font-size:14px;padding:10px 12px;
+  outline:none;transition:border-color .2s;-webkit-appearance:none;margin-bottom:0;
+}
+select:focus,input:focus{border-color:var(--corire)}
+.fg{margin-bottom:12px}
+.fg label{font-family:var(--fd);font-size:10px;font-weight:700;letter-spacing:2px;color:var(--muted);display:block;margin-bottom:4px;text-transform:uppercase}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.frow3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+
+/* ── BUTTONS ── */
+.btn{
+  display:flex;align-items:center;justify-content:center;gap:7px;
+  padding:12px 18px;border-radius:10px;font-family:var(--fd);font-size:15px;
+  font-weight:700;letter-spacing:1.5px;cursor:pointer;border:none;
+  transition:.15s;width:100%;
+}
+.btn-primary{background:var(--corire);color:#000}
+.btn-primary:hover{filter:brightness(1.1)}
+.btn-danger{background:var(--red);color:#fff}
+.btn-success{background:var(--mamas);color:#000}
+.btn-warning{background:var(--aplao);color:#000}
+.btn-ghost{background:var(--s3);color:var(--text);border:1px solid var(--border2)}
+.btn-ghost:hover{border-color:var(--corire)}
+.btn-sm{padding:7px 14px;font-size:12px;width:auto;border-radius:7px}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* ── MAIN APP ── */
+#app{display:none;min-height:100vh;flex-direction:column}
+#app.visible{display:flex}
+
+/* ── TOPBAR ── */
+.topbar{
+  background:var(--s1);border-bottom:1px solid var(--border);
+  padding:9px 14px;display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:90;
+}
+.topbar-logo{font-family:var(--fd);font-size:20px;font-weight:800;letter-spacing:2px}
+.topbar-logo .c{color:var(--corire)} .topbar-logo .sep2{color:var(--muted)} .topbar-logo .a{color:var(--aplao)}
+.user-pill{background:var(--s3);border:1px solid var(--border2);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:600;letter-spacing:.5px}
+.clock{font-family:var(--fm);font-size:12px;color:var(--mamas);letter-spacing:1px}
+.logout-btn{background:none;border:1px solid var(--border2);color:var(--muted);border-radius:6px;padding:4px 9px;cursor:pointer;font-size:11px;transition:.2s}
+.logout-btn:hover{border-color:var(--red);color:var(--red)}
+
+/* ── ONLINE INDICATOR ── */
+.online-dot{width:7px;height:7px;border-radius:50%;background:var(--mamas);display:inline-block;margin-right:4px}
+.online-dot.offline{background:var(--red)}
+.online-dot.syncing{background:var(--yellow);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ── ROUTE HEADER ── */
+.route-header{
+  background:var(--s2);border-bottom:1px solid var(--border);
+  padding:8px 14px;display:flex;align-items:center;justify-content:center;gap:0;
+}
+.rh-stop{text-align:center;min-width:70px}
+.rh-circle{
+  width:34px;height:34px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--fd);font-size:8px;font-weight:700;
+  letter-spacing:.5px;margin:0 auto 2px;border:2px solid;
+}
+.rh-c{border-color:var(--corire);color:var(--corire);background:var(--corire-dim)}
+.rh-m{border-color:var(--mamas);color:var(--mamas);background:var(--mamas-dim)}
+.rh-a{border-color:var(--aplao);color:var(--aplao);background:var(--aplao-dim)}
+.rh-name{font-size:9px;font-weight:700;letter-spacing:.5px}
+.rh-line{flex:1;height:2px;background:var(--border2);position:relative;max-width:80px}
+.rh-time{position:absolute;top:-15px;left:50%;transform:translateX(-50%);font-family:var(--fm);font-size:8px;color:var(--muted);white-space:nowrap}
+
+/* ── TABS ── */
+.tabs{display:flex;background:var(--s1);border-bottom:1px solid var(--border);overflow-x:auto;-webkit-overflow-scrolling:touch}
+.tab{
+  padding:11px 16px;cursor:pointer;font-family:var(--fd);font-size:13px;font-weight:700;
+  letter-spacing:1px;color:var(--muted);border-bottom:2px solid transparent;
+  white-space:nowrap;transition:.2s;
+}
+.tab.active{color:var(--corire);border-bottom-color:var(--corire)}
+
+/* ── PANELS ── */
+.panel{display:none;padding:14px;max-width:960px;margin:0 auto;width:100%}
+.panel.active{display:block}
+
+/* ── GPS BANNER ── */
+.gps-banner{border-radius:9px;padding:9px 12px;display:flex;align-items:center;gap:9px;margin-bottom:12px;font-size:12px;font-weight:500}
+.gps-ok{background:var(--mamas-dim);border:1px solid rgba(59,255,138,.3);color:var(--mamas)}
+.gps-err{background:var(--red-dim);border:1px solid rgba(255,71,87,.3);color:var(--red)}
+.gps-loading{background:var(--yellow-dim);border:1px solid rgba(255,211,42,.3);color:var(--yellow)}
+.gps-dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0}
+.gps-dot.spin{animation:pulse 1.5s infinite}
+
+/* ── SYNC BANNER ── */
+.sync-banner{
+  background:var(--corire-dim);border:1px solid rgba(59,158,255,.3);
+  border-radius:9px;padding:8px 12px;font-size:11px;color:var(--corire);
+  display:none;align-items:center;gap:8px;margin-bottom:10px;
+}
+.sync-banner.show{display:flex}
+
+/* ── CARDS ── */
+.card{
+  background:var(--s1);border:1px solid var(--border);border-radius:11px;
+  padding:16px;margin-bottom:12px;position:relative;overflow:hidden;
+}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.card-corire::before{background:var(--corire)}
+.card-mamas::before{background:var(--mamas)}
+.card-aplao::before{background:var(--aplao)}
+.card-red::before{background:var(--red)}
+.card-dark::before{background:var(--border2)}
+.card-title{font-family:var(--fd);font-size:12px;font-weight:700;letter-spacing:2px;color:var(--muted2);margin-bottom:12px;text-transform:uppercase;display:flex;align-items:center;gap:7px}
+
+/* ── ALERT ── */
+.alert{padding:9px 12px;border-radius:7px;font-size:12px;font-weight:500;display:none;margin-bottom:10px}
+.alert.show{display:block}
+.alert-ok{background:var(--mamas-dim);border:1px solid rgba(59,255,138,.3);color:var(--mamas)}
+.alert-err{background:var(--red-dim);border:1px solid rgba(255,71,87,.3);color:var(--red)}
+.alert-warn{background:var(--yellow-dim);border:1px solid rgba(255,211,42,.3);color:var(--yellow)}
+
+/* ── GEO LOCK ── */
+.geo-lock{background:var(--red-dim);border:1px solid rgba(255,71,87,.3);border-radius:9px;padding:14px;text-align:center;margin-bottom:12px;display:none}
+.geo-lock.show{display:block}
+.geo-lock h3{font-family:var(--fd);font-size:16px;color:var(--red);letter-spacing:1px;margin-bottom:4px}
+.geo-lock p{font-size:11px;color:var(--muted2)}
+
+/* ── PROXIMITY BAR ── */
+.prox-wrap{margin-bottom:10px;display:none}
+.prox-lbl{font-size:10px;color:var(--muted);margin-bottom:3px}
+.prox-bar{height:5px;background:var(--s3);border-radius:3px;overflow:hidden}
+.prox-fill{height:100%;border-radius:3px;transition:width .5s,background .5s}
+
+/* ── STEPS ── */
+.steps{display:flex;gap:5px;margin-bottom:14px}
+.step{flex:1;height:3px;border-radius:2px;background:var(--border2);transition:.3s}
+.step.done{background:var(--mamas)}
+.step.active{background:var(--corire)}
+
+/* ── MONITOR TABLE ── */
+.tbl-wrap{overflow-x:auto;border-radius:7px}
+table{width:100%;border-collapse:collapse;font-size:11px;min-width:560px}
+th{background:var(--s2);color:var(--muted);font-family:var(--fd);font-size:9px;font-weight:700;letter-spacing:1.5px;padding:8px 9px;text-align:left;border-bottom:1px solid var(--border)}
+td{padding:8px 9px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.02)}
+
+/* ── BADGES ── */
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-family:var(--fd);font-size:10px;font-weight:700;letter-spacing:.5px}
+.badge-c{background:var(--corire-dim);color:var(--corire)}
+.badge-a{background:var(--aplao-dim);color:var(--aplao)}
+.badge-ok{background:rgba(59,255,138,.15);color:var(--mamas)}
+.badge-run{background:rgba(59,158,255,.15);color:var(--corire)}
+.badge-late{background:var(--red-dim);color:var(--red)}
+.badge-warn{background:var(--yellow-dim);color:var(--yellow)}
+
+/* ── STATS ── */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:9px;margin-bottom:12px}
+.stat{background:var(--s2);border:1px solid var(--border);border-radius:9px;padding:12px;text-align:center}
+.stat-val{font-family:var(--fd);font-size:28px;font-weight:800;color:var(--corire);line-height:1}
+.stat-lbl{font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:3px}
+
+/* ── UNITS GRID ── */
+.units-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:7px}
+.unit-card{background:var(--s2);border:1px solid var(--border);border-radius:9px;padding:11px;transition:.2s}
+.unit-card.running{border-color:var(--corire)}
+.unit-card.late{border-color:var(--red);background:rgba(255,71,87,.04)}
+.uc-num{font-family:var(--fd);font-size:20px;font-weight:800;line-height:1;color:var(--muted2);margin-bottom:3px}
+.unit-card.running .uc-num{color:var(--corire)}
+.unit-card.late .uc-num{color:var(--red)}
+.uc-name{font-size:10px;color:var(--muted);margin-bottom:5px}
+.uc-status{font-size:11px;font-weight:600}
+.uc-gps{font-family:var(--fm);font-size:9px;color:var(--muted);margin-top:2px}
+
+/* ── MULTA ROW ── */
+.multa-row{display:flex;gap:7px;align-items:flex-end}
+.multa-row .fg{flex:1;margin-bottom:0}
+
+/* ── MONTH NAV ── */
+.month-nav{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.month-lbl{font-family:var(--fd);font-size:20px;font-weight:800;color:var(--aplao);letter-spacing:2px}
+
+/* ── GPS IND ── */
+.gps-ind{display:inline-flex;align-items:center;gap:3px;font-size:10px}
+.gps-ind .dot{width:5px;height:5px;border-radius:50%}
+.gps-valid .dot{background:var(--mamas)}
+.gps-invalid .dot{background:var(--red)}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+.money{color:var(--red);font-family:var(--fm);font-weight:600}
+.ok-txt{color:var(--mamas)}
+.mono{font-family:var(--fm)}
+
+/* ── FIREBASE STATUS BAR ── */
+.fb-status{
+  display:flex;align-items:center;gap:6px;padding:6px 10px;
+  background:var(--s2);border-bottom:1px solid var(--border);
+  font-size:10px;color:var(--muted);font-family:var(--fm);
+}
+
+/* ── COPY BOX ── */
+.copy-box{
+  background:var(--bg);border:1px solid var(--border2);border-radius:6px;
+  padding:10px 12px;font-family:var(--fm);font-size:11px;color:var(--corire);
+  word-break:break-all;cursor:pointer;transition:.2s;margin-bottom:8px;
+}
+.copy-box:hover{border-color:var(--corire)}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.card,.stat,.unit-card{animation:fadeUp .3s ease both}
+
+@media(max-width:520px){
+  .frow,.frow3{grid-template-columns:1fr}
+  .stats{grid-template-columns:1fr 1fr}
+  .units-grid{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}
+  .multa-row{flex-direction:column}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════
+     SETUP SCREEN — Configurar Firebase
+════════════════════════════════════════ -->
+<div id="setup-screen">
+  <div class="setup-logo"><span class="c">CORIRE</span> <span style="color:var(--muted)">↔</span> <span class="a">APLAO</span></div>
+  <div class="setup-sub">SISTEMA DE CONTROL DE RUTA</div>
+
+  <div class="setup-card">
+    <div class="step-badge" style="background:rgba(59,255,138,.2);color:var(--mamas)">✅ FIREBASE YA CONFIGURADO</div>
+    <h2>Ruta Corire–Aplao</h2>
+    <p>Firebase está preconfigurado. Si necesitas cambiar el proyecto, actualiza los campos abajo.</p>
+
+    <div class="note-box">
+      <strong>📋 PASOS PARA OBTENER TU FIREBASE CONFIG:</strong>
+      1. Ve a <strong>console.firebase.google.com</strong><br>
+      2. Clic en "Crear proyecto" → nombre: <em>ruta-corire-aplao</em><br>
+      3. En el panel: Configuración (⚙️) → "Tus apps" → clic en &lt;/&gt; Web<br>
+      4. Registra la app y copia el objeto <em>firebaseConfig</em><br>
+      5. Ve a "Realtime Database" → Crear base de datos → Modo de prueba<br>
+      6. Pega los valores abajo y guarda.
+    </div>
+
+    <div class="frow">
+      <div class="fg"><label>API Key</label><input type="text" id="cfg-apikey" placeholder="AIzaSy..."></div>
+      <div class="fg"><label>Auth Domain</label><input type="text" id="cfg-authdomain" placeholder="tu-app.firebaseapp.com"></div>
+    </div>
+    <div class="fg"><label>Database URL</label><input type="text" id="cfg-dburl" placeholder="https://tu-app-default-rtdb.firebaseio.com"></div>
+    <div class="frow">
+      <div class="fg"><label>Project ID</label><input type="text" id="cfg-projectid" placeholder="ruta-corire-aplao"></div>
+      <div class="fg"><label>App ID</label><input type="text" id="cfg-appid" placeholder="1:123:web:abc..."></div>
+    </div>
+
+    <div id="setup-alert" class="alert" style="margin-bottom:12px"></div>
+    <button class="btn btn-primary" onclick="guardarConfig()">💾 GUARDAR Y CONECTAR</button>
+
+    <div class="sep"></div>
+    <p style="font-size:11px;color:var(--muted);text-align:center">
+      ¿Ya tienes la config guardada?
+    </p>
+    <button class="btn btn-ghost" style="margin-top:8px" onclick="cargarConfigGuardada()">📲 USAR CONFIG GUARDADA</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     LOGIN SCREEN
+════════════════════════════════════════ -->
+<div id="login-screen">
+  <div class="login-logo"><span class="c">CORIRE</span><span style="color:var(--muted)"> ↔ </span><span class="a">APLAO</span></div>
+  <div class="login-sub">SISTEMA DE CONTROL</div>
+
+  <div class="login-card">
+    <h2>SELECCIONA ROL</h2>
+    <div class="roles-grid">
+      <div class="role-btn" id="role-chofer" onclick="selectRole('chofer')"><span class="ri">🚌</span>CHOFER</div>
+      <div class="role-btn" id="role-supervisor" onclick="selectRole('supervisor')"><span class="ri">👮</span>SUPERVISOR</div>
+    </div>
+    <div id="unit-row" style="display:none">
+      <div class="fg"><label>Tu Unidad</label><select id="login-unit"></select></div>
+    </div>
+    <div id="sup-row" style="display:none">
+      <div class="fg"><label>Clave Supervisor</label><input type="password" id="sup-pass" placeholder="••••••"></div>
+    </div>
+    <div id="login-alert" class="alert" style="margin-bottom:10px"></div>
+    <button class="btn btn-primary" onclick="doLogin()">INGRESAR →</button>
+    <button class="btn btn-ghost" style="margin-top:8px;font-size:11px" onclick="reconfigurar()">⚙️ Cambiar configuración Firebase</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     MAIN APP
+════════════════════════════════════════ -->
+<div id="app">
+
+  <!-- Firebase status bar -->
+  <div class="fb-status">
+    <div class="online-dot" id="fb-dot"></div>
+    <span id="fb-status-txt">Conectando...</span>
+    <span style="margin-left:auto" id="last-sync-txt"></span>
+  </div>
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="topbar-logo"><span class="c">COR</span><span class="sep2">–</span><span class="a">APL</span></div>
+      <div class="user-pill" id="user-pill">—</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="clock" id="clock">00:00:00</div>
+      <button class="logout-btn" onclick="logout()">SALIR</button>
+    </div>
+  </div>
+
+  <!-- ROUTE HEADER -->
+  <div class="route-header">
+    <div class="rh-stop"><div class="rh-circle rh-c">CORIRE</div><div class="rh-name" style="color:var(--corire)">CORIRE</div></div>
+    <div class="rh-line"><span class="rh-time">18 min</span></div>
+    <div class="rh-stop"><div class="rh-circle rh-m">MAMÁS</div><div class="rh-name" style="color:var(--mamas)">MAMÁS</div></div>
+    <div class="rh-line"><span class="rh-time">12 min</span></div>
+    <div class="rh-stop"><div class="rh-circle rh-a">APLAO</div><div class="rh-name" style="color:var(--aplao)">APLAO</div></div>
+  </div>
+
+  <div class="tabs" id="tab-bar"></div>
+
+  <!-- ── PANEL CHOFER ── -->
+  <div class="panel" id="panel-chofer">
+    <div class="sync-banner" id="sync-banner">
+      <div class="gps-dot spin" style="background:var(--corire)"></div>
+      <span id="sync-msg">Sincronizando...</span>
+    </div>
+    <div class="gps-banner gps-loading" id="gps-banner">
+      <div class="gps-dot spin"></div><span id="gps-msg">Obteniendo GPS...</span>
+    </div>
+
+    <div class="steps">
+      <div class="step active" id="step-1"></div>
+      <div class="step" id="step-2"></div>
+      <div class="step" id="step-3"></div>
+    </div>
+
+    <!-- SALIDA -->
+    <div class="card card-corire" id="card-salida">
+      <div class="card-title">🚀 PASO 1 — REGISTRAR SALIDA</div>
+      <div class="frow">
+        <div class="fg"><label>Punto de Salida</label>
+          <select id="s-origen" onchange="actualizarProximidad()">
+            <option value="">— Selecciona —</option>
+            <option value="CORIRE">CORIRE</option>
+            <option value="APLAO">APLAO</option>
+          </select>
+        </div>
+        <div class="fg"><label>Hora salida</label><input type="time" id="s-hora"></div>
+      </div>
+      <div class="prox-wrap" id="prox-salida-wrap">
+        <div class="prox-lbl">📍 Dist. al punto: <span id="prox-dist-salida" style="color:var(--yellow);font-family:var(--fm)">—</span></div>
+        <div class="prox-bar"><div class="prox-fill" id="prox-fill-salida" style="width:0%"></div></div>
+      </div>
+      <div class="geo-lock" id="geo-lock-salida">
+        <h3>📍 FUERA DE ZONA</h3>
+        <p>Debes estar en el punto de salida.<br>Distancia actual: <strong id="dist-salida-txt">—</strong></p>
+      </div>
+      <div id="salida-alert" class="alert"></div>
+      <button class="btn btn-primary" id="btn-salida" onclick="registrarSalida()">🚀 REGISTRAR SALIDA</button>
+    </div>
+
+    <!-- MAMÁS -->
+    <div class="card card-mamas" id="card-mamas" style="opacity:.4;pointer-events:none">
+      <div class="card-title">📍 PASO 2 — LLEGADA A MAMÁS</div>
+      <!-- hora capturada automáticamente al tocar botón -->
+      <input type="hidden" id="m-hora">
+      <div class="prox-wrap" id="prox-mamas-wrap">
+        <div class="prox-lbl">📍 Dist. a Mamás: <span id="prox-dist-mamas" style="color:var(--yellow);font-family:var(--fm)">—</span></div>
+        <div class="prox-bar"><div class="prox-fill" id="prox-fill-mamas" style="width:0%"></div></div>
+      </div>
+      <div class="geo-lock" id="geo-lock-mamas">
+        <h3>📍 FUERA DE ZONA MAMÁS</h3>
+        <p>Acércate al punto Mamás. Dist: <strong id="dist-mamas-txt">—</strong></p>
+      </div>
+      <div id="mamas-alert" class="alert"></div>
+      <div style="text-align:center;font-size:11px;color:var(--muted);margin-bottom:8px;font-family:var(--fm)">⏱️ Se grabará la hora exacta al tocar</div>
+      <button class="btn btn-success" onclick="registrarMamas()">📍 MARCAR EN MAMÁS</button>
+    </div>
+
+    <!-- LLEGADA -->
+    <div class="card card-aplao" id="card-llegada" style="opacity:.4;pointer-events:none">
+      <div class="card-title">🏁 PASO 3 — LLEGADA FINAL</div>
+      <div class="frow">
+        <div class="fg"><label>Destino</label>
+          <select id="l-destino" onchange="actualizarProximidad()">
+            <option value="">— Selecciona —</option>
+            <option value="CORIRE">CORIRE</option>
+            <option value="APLAO">APLAO</option>
+          </select>
+        </div>
+        <!-- hora capturada automáticamente al tocar botón -->
+        <input type="hidden" id="l-hora">
+      </div>
+      <div class="prox-wrap" id="prox-llegada-wrap">
+        <div class="prox-lbl">📍 Dist. al destino: <span id="prox-dist-llegada" style="color:var(--yellow);font-family:var(--fm)">—</span></div>
+        <div class="prox-bar"><div class="prox-fill" id="prox-fill-llegada" style="width:0%"></div></div>
+      </div>
+      <div class="geo-lock" id="geo-lock-llegada">
+        <h3>📍 FUERA DEL DESTINO</h3>
+        <p>Debes estar en el destino. Dist: <strong id="dist-llegada-txt">—</strong></p>
+      </div>
+      <div id="llegada-alert" class="alert"></div>
+      <div style="text-align:center;font-size:11px;color:var(--muted);margin-bottom:8px;font-family:var(--fm)">⏱️ Se grabará la hora exacta al tocar</div>
+      <button class="btn btn-warning" onclick="registrarLlegada()">🏁 REGISTRAR LLEGADA</button>
+    </div>
+
+    <!-- Mis viajes hoy -->
+    <div class="card card-dark">
+      <div class="card-title">📋 MIS VIAJES HOY</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Origen</th><th>Salida</th><th>Mamás</th><th>Destino</th><th>Llegada</th><th>Tardanza</th><th>S/</th></tr></thead>
+          <tbody id="historial-chofer-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PANEL MONITOR ── -->
+  <div class="panel" id="panel-monitor">
+    <div class="stats">
+      <div class="stat"><div class="stat-val" id="st-total">20</div><div class="stat-lbl">Unidades</div></div>
+      <div class="stat"><div class="stat-val" id="st-en-ruta" style="color:var(--corire)">0</div><div class="stat-lbl">En ruta</div></div>
+      <div class="stat"><div class="stat-val" id="st-tarde" style="color:var(--red)">0</div><div class="stat-lbl">Tardanza</div></div>
+      <div class="stat"><div class="stat-val" id="st-gps-al" style="color:var(--yellow)">0</div><div class="stat-lbl">GPS Alert</div></div>
+      <div class="stat"><div class="stat-val" id="st-multas" style="color:var(--red)">S/0</div><div class="stat-lbl">Multas hoy</div></div>
+    </div>
+    <div class="card card-dark">
+      <div class="card-title">ESTADO EN TIEMPO REAL · <span id="monitor-ts" style="color:var(--mamas);font-family:var(--fm);font-size:10px"></span></div>
+      <div class="units-grid" id="units-grid"></div>
+    </div>
+    <div class="card card-dark">
+      <div class="card-title">VIAJES EN CURSO</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>U#</th><th>Origen</th><th>Salida</th><th>Destino</th><th>Esperada</th><th>Tardanza</th><th>GPS</th><th>Acum S/</th></tr></thead>
+          <tbody id="monitor-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PANEL SUPERVISOR ── -->
+  <div class="panel" id="panel-supervisor">
+    <div class="card card-dark">
+      <div class="card-title">⚙️ TIEMPOS DE RUTA (min)</div>
+      <div class="frow3">
+        <div class="fg"><label>Corire → Mamás</label><input type="number" id="t-cm" value="18" min="1" onchange="guardarTiempos()"></div>
+        <div class="fg"><label>Corire → Aplao</label><input type="number" id="t-ca" value="31" min="1" onchange="guardarTiempos()"></div>
+        <div class="fg"><label>Aplao → Mamás</label><input type="number" id="t-am" value="19" min="1" onchange="guardarTiempos()"></div>
+      </div>
+      <div class="frow3">
+        <div class="fg"><label>Aplao → Corire</label><input type="number" id="t-ac" value="31" min="1" onchange="guardarTiempos()"></div>
+        <div class="fg"><label>Mamás → Corire</label><input type="number" id="t-mc" value="13" min="1" onchange="guardarTiempos()"></div>
+        <div class="fg"><label>Mamás → Aplao</label><input type="number" id="t-ma" value="12" min="1" onchange="guardarTiempos()"></div>
+      </div>
+    </div>
+    <div class="card card-dark">
+      <div class="card-title">📍 PUNTOS GPS</div>
+      <div class="frow3" style="margin-bottom:10px">
+        <div class="fg"><label>Radio geofence (m)</label><input type="number" id="geo-radio" value="300" min="50" onchange="guardarPuntos()"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+        <div><div style="font-size:10px;font-weight:700;color:var(--corire);margin-bottom:6px;letter-spacing:1px">CORIRE</div>
+          <div class="fg"><label>Lat</label><input type="text" id="lat-corire" value="-16.2163867" onchange="guardarPuntos()"></div>
+          <div class="fg"><label>Lon</label><input type="text" id="lon-corire" value="-72.4692981" onchange="guardarPuntos()"></div></div>
+        <div><div style="font-size:10px;font-weight:700;color:var(--mamas);margin-bottom:6px;letter-spacing:1px">MAMÁS</div>
+          <div class="fg"><label>Lat</label><input type="text" id="lat-mamas" value="-16.1515679" onchange="guardarPuntos()"></div>
+          <div class="fg"><label>Lon</label><input type="text" id="lon-mamas" value="-72.4918005" onchange="guardarPuntos()"></div></div>
+        <div><div style="font-size:10px;font-weight:700;color:var(--aplao);margin-bottom:6px;letter-spacing:1px">APLAO</div>
+          <div class="fg"><label>Lat</label><input type="text" id="lat-aplao" value="-16.0897344" onchange="guardarPuntos()"></div>
+          <div class="fg"><label>Lon</label><input type="text" id="lon-aplao" value="-72.4919021" onchange="guardarPuntos()"></div></div>
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:4px">💡 Google Maps → clic derecho → copiar coordenadas</div>
+    </div>
+    <div class="card card-red">
+      <div class="card-title">⚠️ MULTAS EXTERNAS</div>
+      <div id="multas-list"></div>
+      <div class="multa-row" style="margin-top:8px">
+        <div class="fg"><label>Unidad</label><select id="mult-unit"></select></div>
+        <div class="fg"><label>Monto S/</label><input type="number" id="mult-monto" placeholder="0" min="1"></div>
+        <div class="fg" style="flex:2"><label>Motivo</label><input type="text" id="mult-motivo" placeholder="Descripción"></div>
+        <button class="btn btn-danger btn-sm" onclick="agregarMulta()">+ MULTA</button>
+      </div>
+      <div id="mult-alert" class="alert"></div>
+    </div>
+    <div class="card card-dark">
+      <div class="card-title">🚨 ALERTAS GPS HOY</div>
+      <div id="gps-alertas-list" style="font-size:11px;color:var(--muted)">Sin alertas.</div>
+    </div>
+    <div class="card card-dark">
+      <div class="card-title">📋 HISTORIAL HOY</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>U#</th><th>Origen</th><th>Salida</th><th>Mamás</th><th>Destino</th><th>Llegada</th><th>Tardanza</th><th>GPS</th><th>S/</th></tr></thead>
+          <tbody id="historial-sup-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PANEL REPORTE ── -->
+  <div class="panel" id="panel-reporte">
+    <div class="month-nav">
+      <button class="btn btn-ghost btn-sm" style="width:auto" onclick="cambiarMes(-1)">◀</button>
+      <div class="month-lbl" id="mes-lbl"></div>
+      <button class="btn btn-ghost btn-sm" style="width:auto" onclick="cambiarMes(1)">▶</button>
+      <button class="btn btn-danger btn-sm" onclick="cerrarMes()">🔒 CERRAR MES</button>
+    </div>
+    <div id="reporte-alert" class="alert"></div>
+    <div class="card card-dark">
+      <div class="card-title">RESUMEN MENSUAL</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Unidad</th><th>Viajes</th><th>Min Tarda</th><th>Multa Tard.</th><th>Multas Ext.</th><th>GPS Alertas</th><th>TOTAL S/</th><th>Estado</th></tr></thead>
+          <tbody id="reporte-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  CONSTANTES
+// ═══════════════════════════════════════════════════════
+const NUM_U   = 20;
+const SUP_KEY = "1234";
+const MESES   = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const CHOFERES = Array.from({length:NUM_U},(_,i)=>`Chofer U${String(i+1).padStart(2,'0')}`);
+
+// ═══════════════════════════════════════════════════════
+//  ESTADO LOCAL (caché)
+// ═══════════════════════════════════════════════════════
+let CFG  = null;   // firebase config
+let DB   = null;   // firebase database
+let SESSION = { role:null, unidad:null };
+let gpsPos  = null, gpsWatcher = null;
+let mesActual = new Date();
+
+// Datos en memoria (se sincronizan con Firebase)
+let DATA = {
+  config: {
+    tiempos:{ cm:18, ca:31, am:19, ac:31, mc:13, ma:12 },
+    puntos:{ CORIRE:{lat:-16.2163867,lon:-72.4692981}, MAMAS:{lat:-16.1515679,lon:-72.4918005}, APLAO:{lat:-16.0897344,lon:-72.4919021} },
+    geoRadio:300
+  },
+  viajesActivos:{},
+  historialDia:{},
+  tardanzaAcum:{},
+  multasExternas:{},
+  gpsAlertas:{},
+  reporteMensual:{}
+};
+
+// ═══════════════════════════════════════════════════════
+//  FIREBASE SETUP
+// ═══════════════════════════════════════════════════════
+function guardarConfig() {
+  const cfg = {
+    apiKey:    document.getElementById('cfg-apikey').value.trim(),
+    authDomain:document.getElementById('cfg-authdomain').value.trim(),
+    databaseURL:document.getElementById('cfg-dburl').value.trim(),
+    projectId: document.getElementById('cfg-projectid').value.trim(),
+    appId:     document.getElementById('cfg-appid').value.trim()
+  };
+  if (!cfg.apiKey || !cfg.databaseURL) {
+    showSetupAlert('Completa al menos API Key y Database URL','err'); return;
+  }
+  localStorage.setItem('fb_cfg_v2', JSON.stringify(cfg));
+  iniciarFirebase(cfg);
+}
+
+function cargarConfigGuardada() {
+  const s = localStorage.getItem('fb_cfg_v2');
+  if (!s) { showSetupAlert('No hay configuración guardada. Completa los campos.','err'); return; }
+  iniciarFirebase(JSON.parse(s));
+}
+
+function reconfigurar() {
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('setup-screen').style.display='flex';
+}
+
+function iniciarFirebase(cfg) {
+  try {
+    if (firebase.apps.length) firebase.app().delete();
+  } catch(e) {}
+  try {
+    firebase.initializeApp(cfg);
+    DB = firebase.database();
+    CFG = cfg;
+
+    // Test de conexión
+    DB.ref('.info/connected').on('value', snap => {
+      const online = snap.val();
+      document.getElementById('fb-dot').className = 'online-dot' + (online?'':' offline');
+      document.getElementById('fb-status-txt').textContent = online ? '🟢 Firebase conectado' : '🔴 Sin conexión – modo offline';
+    });
+
+    // Cargar datos al conectar
+    suscribirDatos();
+    document.getElementById('setup-screen').style.display='none';
+    document.getElementById('login-screen').style.display='flex';
+    showSetupAlert('Conectado correctamente','ok');
+
+  } catch(e) {
+    showSetupAlert('Error al conectar: '+e.message,'err');
+  }
+}
+
+function suscribirDatos() {
+  // Config
+  DB.ref('config').on('value', snap => {
+    if (snap.val()) DATA.config = { ...DATA.config, ...snap.val() };
+    if (document.getElementById('t-cm')) actualizarFormsConfig();
+  });
+  // Viajes activos
+  DB.ref('viajesActivos').on('value', snap => {
+    DATA.viajesActivos = snap.val() || {};
+    if (document.getElementById('units-grid').innerHTML !== '') renderMonitor();
+  });
+  // Historial del día
+  DB.ref('historialDia').on('value', snap => {
+    DATA.historialDia = snap.val() || {};
+    if (SESSION.unidad) renderHistorialChofer();
+    if (document.getElementById('historial-sup-tbody')) renderHistorialSup();
+    document.getElementById('last-sync-txt').textContent = 'Sync: '+ahoraTxt();
+  });
+  // Tardanza acumulada
+  DB.ref('tardanzaAcum').on('value', snap => { DATA.tardanzaAcum = snap.val() || {}; });
+  // Multas externas
+  DB.ref('multasExternas').on('value', snap => {
+    DATA.multasExternas = snap.val() || {};
+    if (document.getElementById('multas-list')) renderMultasLista();
+  });
+  // GPS alertas
+  DB.ref('gpsAlertas').on('value', snap => {
+    DATA.gpsAlertas = snap.val() || {};
+    if (document.getElementById('gps-alertas-list')) renderGpsAlertas();
+  });
+  // Reporte mensual
+  DB.ref('reporteMensual').on('value', snap => {
+    DATA.reporteMensual = snap.val() || {};
+  });
+}
+
+function fbSet(path, val) {
+  if (!DB) return Promise.resolve();
+  setSyncBanner(true, 'Guardando...');
+  return DB.ref(path).set(val)
+    .then(()=>{ setSyncBanner(false); document.getElementById('last-sync-txt').textContent='Sync: '+ahoraTxt(); })
+    .catch(e=>{ setSyncBanner(false); console.error('fbSet error',e); });
+}
+function fbUpdate(path, val) {
+  if (!DB) return Promise.resolve();
+  setSyncBanner(true, 'Guardando...');
+  return DB.ref(path).update(val)
+    .then(()=>{ setSyncBanner(false); document.getElementById('last-sync-txt').textContent='Sync: '+ahoraTxt(); })
+    .catch(e=>{ setSyncBanner(false); console.error('fbUpdate error',e); });
+}
+function fbRemove(path) {
+  if (!DB) return Promise.resolve();
+  return DB.ref(path).remove();
+}
+function fbPush(path, val) {
+  if (!DB) return Promise.resolve();
+  setSyncBanner(true, 'Guardando...');
+  return DB.ref(path).push(val)
+    .then(()=>setSyncBanner(false))
+    .catch(e=>setSyncBanner(false));
+}
+
+function setSyncBanner(show, msg='') {
+  const b=document.getElementById('sync-banner');
+  b.classList.toggle('show',show);
+  if (msg) document.getElementById('sync-msg').textContent=msg;
+}
+
+// ═══════════════════════════════════════════════════════
+//  LOGIN / LOGOUT
+// ═══════════════════════════════════════════════════════
+function selectRole(role) {
+  document.getElementById('role-chofer').classList.toggle('selected',role==='chofer');
+  document.getElementById('role-supervisor').classList.toggle('selected',role==='supervisor');
+  document.getElementById('unit-row').style.display=role==='chofer'?'block':'none';
+  document.getElementById('sup-row').style.display=role==='supervisor'?'block':'none';
+  SESSION.role=role;
+}
+
+function doLogin() {
+  const role=SESSION.role;
+  if (!role){ showAlert('login-alert','Selecciona un rol','err'); return; }
+  if (role==='supervisor'){
+    if (document.getElementById('sup-pass').value!==SUP_KEY){ showAlert('login-alert','Clave incorrecta','err'); return; }
+    SESSION.unidad=null;
+  } else {
+    const u=document.getElementById('login-unit').value;
+    if (!u){ showAlert('login-alert','Selecciona tu unidad','err'); return; }
+    SESSION.unidad=u;
+  }
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app').style.display='flex';
+  document.getElementById('user-pill').textContent = role==='supervisor'
+    ? '👮 SUPERVISOR' : `🚌 U${String(SESSION.unidad).padStart(2,'0')}`;
+  buildTabs();
+  iniciarGPS();
+  poblarSelects();
+  actualizarFormsConfig();
+  setInterval(tickClock,1000); tickClock();
+  setInterval(renderMonitor,15000);
+  renderMonitor();
+  actualizarMesLabel();
+}
+
+function logout() {
+  if (gpsWatcher) navigator.geolocation.clearWatch(gpsWatcher);
+  SESSION={role:null,unidad:null}; gpsPos=null;
+  document.getElementById('app').style.display='none';
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('role-chofer').classList.remove('selected');
+  document.getElementById('role-supervisor').classList.remove('selected');
+  document.getElementById('unit-row').style.display='none';
+  document.getElementById('sup-row').style.display='none';
+}
+
+// ═══════════════════════════════════════════════════════
+//  HELPERS TIEMPO / GPS
+// ═══════════════════════════════════════════════════════
+function horaAMin(h){ if(!h)return null; const[hh,mm]=h.split(':').map(Number); return hh*60+mm; }
+function minAHora(m){ if(m==null)return'--:--'; return String(Math.floor(m/60)%24).padStart(2,'0')+':'+String(m%60).padStart(2,'0'); }
+function ahoraTxt(){ const d=new Date(); return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
+function tickClock(){ const d=new Date(); document.getElementById('clock').textContent=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0'); }
+function tiempoEsp(o,d){ const t=DATA.config.tiempos; return ({CORIRE_APLAO:t.ca,APLAO_CORIRE:t.ac,CORIRE_MAMAS:t.cm,APLAO_MAMAS:t.am,MAMAS_CORIRE:t.mc,MAMAS_APLAO:t.ma})[o+'_'+d]||31; }
+function mesKey(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
+function hoy(){ return new Date().toISOString().slice(0,10); }
+
+function haversine(la1,lo1,la2,lo2){
+  const R=6371000,r=Math.PI/180,dl=(la2-la1)*r,dn=(lo2-lo1)*r;
+  const a=Math.sin(dl/2)**2+Math.cos(la1*r)*Math.cos(la2*r)*Math.sin(dn/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+function distPunto(nom){
+  if(!gpsPos)return Infinity;
+  const p=DATA.config.puntos[nom];
+  return haversine(gpsPos.lat,gpsPos.lon,p.lat,p.lon);
+}
+function enZona(nom){ return distPunto(nom)<=DATA.config.geoRadio; }
+
+function iniciarGPS(){
+  if(!navigator.geolocation){ setBanner('err','GPS no disponible'); return; }
+  setBanner('loading','Obteniendo GPS...');
+  gpsWatcher=navigator.geolocation.watchPosition(
+    pos=>{
+      gpsPos={lat:pos.coords.latitude,lon:pos.coords.longitude,acc:pos.coords.accuracy};
+      const cerca=puntoMasCercano();
+      setBanner('ok',`GPS ±${Math.round(pos.coords.accuracy)}m · Cerca de ${cerca.punto} (${Math.round(cerca.dist)}m)`);
+      actualizarProximidad();
+    },
+    ()=>{ gpsPos=null; setBanner('err','GPS desactivado – registros sin validación GPS'); },
+    {enableHighAccuracy:true,timeout:15000,maximumAge:5000}
+  );
+}
+function puntoMasCercano(){
+  let min=Infinity,best='CORIRE';
+  ['CORIRE','MAMAS','APLAO'].forEach(p=>{ const d=distPunto(p); if(d<min){min=d;best=p;} });
+  return{punto:best,dist:min};
+}
+function setBanner(type,msg){
+  const b=document.getElementById('gps-banner');
+  b.className='gps-banner '+(type==='ok'?'gps-ok':type==='err'?'gps-err':'gps-loading');
+  b.innerHTML=`<div class="gps-dot${type==='loading'?' spin':''}"></div><span>${msg}</span>`;
+}
+function actualizarProximidad(){
+  const r=DATA.config.geoRadio;
+  const origen=document.getElementById('s-origen').value;
+  if(origen&&gpsPos){
+    const d=Math.round(distPunto(origen));
+    const pct=Math.max(0,Math.min(100,(1-d/r)*100));
+    document.getElementById('prox-salida-wrap').style.display='block';
+    document.getElementById('prox-dist-salida').textContent=d+'m';
+    document.getElementById('prox-fill-salida').style.cssText=`width:${pct}%;background:${d<=r?'var(--mamas)':'var(--red)'}`;
+    document.getElementById('dist-salida-txt').textContent=d+'m';
+    document.getElementById('geo-lock-salida').classList.toggle('show',d>r);
+  }
+  if(gpsPos){
+    const d=Math.round(distPunto('MAMAS'));
+    const pct=Math.max(0,Math.min(100,(1-d/r)*100));
+    document.getElementById('prox-mamas-wrap').style.display='block';
+    document.getElementById('prox-dist-mamas').textContent=d+'m';
+    document.getElementById('prox-fill-mamas').style.cssText=`width:${pct}%;background:${d<=r?'var(--mamas)':'var(--red)'}`;
+    document.getElementById('dist-mamas-txt').textContent=d+'m';
+    document.getElementById('geo-lock-mamas').classList.toggle('show',d>r);
+  }
+  const destino=document.getElementById('l-destino').value;
+  if(destino&&gpsPos){
+    const d=Math.round(distPunto(destino));
+    const pct=Math.max(0,Math.min(100,(1-d/r)*100));
+    document.getElementById('prox-llegada-wrap').style.display='block';
+    document.getElementById('prox-dist-llegada').textContent=d+'m';
+    document.getElementById('prox-fill-llegada').style.cssText=`width:${pct}%;background:${d<=r?'var(--mamas)':'var(--red)'}`;
+    document.getElementById('dist-llegada-txt').textContent=d+'m';
+    document.getElementById('geo-lock-llegada').classList.toggle('show',d>r);
+  }
+}
+setInterval(()=>{ if(gpsPos)actualizarProximidad(); },5000);
+
+// ═══════════════════════════════════════════════════════
+//  TABS
+// ═══════════════════════════════════════════════════════
+function buildTabs(){
+  const isSup=SESSION.role==='supervisor';
+  const tabs=isSup
+    ?[['monitor','🖥️ MONITOR'],['supervisor','👮 SUPERVISOR'],['reporte','📊 REPORTE']]
+    :[['chofer','🚌 MIS VIAJES'],['monitor','🖥️ MONITOR']];
+  document.getElementById('tab-bar').innerHTML=tabs.map(([id,lbl],i)=>
+    `<div class="tab${i===0?' active':''}" onclick="setTab('${id}')">${lbl}</div>`).join('');
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('panel-'+tabs[0][0]).classList.add('active');
+}
+function setTab(name){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  event.target.classList.add('active');
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');
+  if(name==='monitor')renderMonitor();
+  if(name==='supervisor'){ renderHistorialSup(); renderMultasLista(); renderGpsAlertas(); }
+  if(name==='reporte'){ renderReporte(); actualizarMesLabel(); }
+}
+
+// ═══════════════════════════════════════════════════════
+//  REGISTRO CHOFER
+// ═══════════════════════════════════════════════════════
+function registrarSalida(){
+  const origen=document.getElementById('s-origen').value;
+  const hora=document.getElementById('s-hora').value||ahoraTxt();
+  if(!origen){ showAlert('salida-alert','Selecciona punto de salida','err'); return; }
+  const u=SESSION.unidad;
+  let gpsOk=true, dist=null, gpsSnap=null;
+  if(gpsPos){ dist=Math.round(distPunto(origen)); gpsOk=dist<=DATA.config.geoRadio; gpsSnap={lat:gpsPos.lat,lon:gpsPos.lon,acc:Math.round(gpsPos.acc)}; }
+  const destino=origen==='CORIRE'?'APLAO':'CORIRE';
+  const espMin=tiempoEsp(origen,destino);
+  const salidaMin=horaAMin(hora);
+  const esperadaMin=salidaMin+espMin;
+  const viaje={ unidad:u, origen, salida:hora, salidaMin, destino, esperadaMin, mamasHora:null, gpsOk, dist, gpsSalida:gpsSnap, id:Date.now(), fecha:hoy() };
+
+  fbSet('viajesActivos/'+u, viaje);
+
+  if(!gpsOk&&gpsPos){
+    fbPush('gpsAlertas', {tipo:'SALIDA',unidad:u,dist,hora,punto:origen,fecha:hoy(),ts:Date.now()});
+    showAlert('salida-alert',`⚠️ GPS: estás a ${dist}m de ${origen}. Salida registrada con alerta.`,'warn');
+  } else {
+    showAlert('salida-alert',`✅ Salida de ${origen} a las ${hora}. Llega antes de ${minAHora(esperadaMin)}`,'ok');
+  }
+  document.getElementById('card-mamas').style.opacity='1';
+  document.getElementById('card-mamas').style.pointerEvents='auto';
+  setStep(2);
+}
+
+function registrarMamas(){
+  const u=SESSION.unidad;
+  const hora=ahoraTxt(); // hora automática del servidor al tocar botón
+  let gpsOk=true,dist=null,gpsSnap=null;
+  if(gpsPos){ dist=Math.round(distPunto('MAMAS')); gpsOk=dist<=DATA.config.geoRadio; gpsSnap={lat:gpsPos.lat,lon:gpsPos.lon,acc:Math.round(gpsPos.acc)}; }
+  fbUpdate('viajesActivos/'+u, {mamasHora:hora,gpsMamas:gpsSnap,gpsOkMamas:gpsOk});
+  if(!gpsOk&&gpsPos) fbPush('gpsAlertas',{tipo:'MAMÁS',unidad:u,dist,hora,punto:'MAMAS',fecha:hoy(),ts:Date.now()});
+  showAlert('mamas-alert',gpsOk?`📍 Mamás registrado · Hora: ${hora}`:`⚠️ GPS: ${dist}m de Mamás · Hora grabada: ${hora}`,gpsOk?'ok':'warn');
+  document.getElementById('card-llegada').style.opacity='1';
+  document.getElementById('card-llegada').style.pointerEvents='auto';
+  setStep(3);
+}
+
+function registrarLlegada(){
+  const u=SESSION.unidad;
+  const destino=document.getElementById('l-destino').value;
+  const hora=ahoraTxt(); // hora automática del servidor al tocar botón
+  if(!destino){ showAlert('llegada-alert','Selecciona el destino','err'); return; }
+  const v=DATA.viajesActivos[u];
+  if(!v){ showAlert('llegada-alert','Sin viaje activo. Registra salida primero.','err'); return; }
+  let gpsOk=true,dist=null,gpsSnap=null;
+  if(gpsPos){ dist=Math.round(distPunto(destino)); gpsOk=dist<=DATA.config.geoRadio; gpsSnap={lat:gpsPos.lat,lon:gpsPos.lon,acc:Math.round(gpsPos.acc)}; }
+  const llegadaMin=horaAMin(hora);
+  const tardMin=Math.max(0,llegadaMin-v.esperadaMin);
+  const acumPrev=(DATA.tardanzaAcum[u]||0);
+  const acumNuevo=acumPrev+tardMin;
+  const todoGpsOk=v.gpsOk!==false&&v.gpsOkMamas!==false&&gpsOk;
+  const viajeComp={...v,destinoFinal:destino,llegada:hora,llegadaMin,tardanza:tardMin,gpsLlegada:gpsSnap,gpsOkLlegada:gpsOk,gpsAlert:!todoGpsOk,completado:Date.now()};
+
+  fbRemove('viajesActivos/'+u);
+  fbPush('historialDia', viajeComp);
+  fbSet('tardanzaAcum/'+u, acumNuevo);
+  if(!gpsOk&&gpsPos) fbPush('gpsAlertas',{tipo:'LLEGADA',unidad:u,dist,hora,punto:destino,fecha:hoy(),ts:Date.now()});
+
+  showAlert('llegada-alert',
+    tardMin>0?`⚠️ ${tardMin} min de tardanza · Llegada grabada: ${hora} · Multa: S/${tardMin} · Acum hoy: S/${acumNuevo}`
+            :`✅ A tiempo en ${destino} · Llegada grabada: ${hora}`,
+    tardMin>0?'warn':'ok');
+
+  setStep(1);
+  document.getElementById('card-mamas').style.opacity='0.4';
+  document.getElementById('card-mamas').style.pointerEvents='none';
+  document.getElementById('card-llegada').style.opacity='0.4';
+  document.getElementById('card-llegada').style.pointerEvents='none';
+  document.getElementById('s-origen').value='';
+  document.getElementById('l-destino').value='';
+}
+
+function setStep(n){
+  [1,2,3].forEach(i=>{
+    document.getElementById('step-'+i).className='step'+(i<n?' done':i===n?' active':'');
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+//  MONITOR
+// ═══════════════════════════════════════════════════════
+function renderMonitor(){
+  const now=horaAMin(ahoraTxt());
+  let enRuta=0,tarde=0,gpsAl=0,multasHoy=0;
+  document.getElementById('monitor-ts').textContent=ahoraTxt();
+
+  const hist=Object.values(DATA.historialDia||{});
+  const mult=Object.values(DATA.multasExternas||{}).filter(m=>m.fecha===hoy());
+  hist.forEach(h=>multasHoy+=h.tardanza||0);
+  mult.forEach(m=>multasHoy+=m.monto||0);
+
+  let grid='',tbody='';
+  for(let i=1;i<=NUM_U;i++){
+    const u=String(i);
+    const v=DATA.viajesActivos[u];
+    const acum=DATA.tardanzaAcum[u]||0;
+    if(v){
+      enRuta++;
+      const tardAct=Math.max(0,now-v.esperadaMin);
+      if(tardAct>0)tarde++;
+      if(!v.gpsOk)gpsAl++;
+      grid+=`<div class="unit-card ${tardAct>0?'late':'running'}">
+        <div class="uc-num">U${String(i).padStart(2,'0')}</div>
+        <div class="uc-name">${CHOFERES[i-1]}</div>
+        <div class="uc-status" style="color:${tardAct>0?'var(--red)':'var(--corire)'}">
+          ${tardAct>0?`+${tardAct}min TARDE`:'EN RUTA ▶'}
+        </div>
+        <div class="uc-gps">${v.gpsOk!==false?'📍 GPS OK':'⚠️ GPS ALERTA'}</div>
+      </div>`;
+      tbody+=`<tr>
+        <td><strong class="mono">U${String(i).padStart(2,'0')}</strong></td>
+        <td><span class="badge badge-${v.origen==='CORIRE'?'c':'a'}">${v.origen}</span></td>
+        <td class="mono">${v.salida}</td>
+        <td><span class="badge badge-${v.destino==='CORIRE'?'c':'a'}">${v.destino}</span></td>
+        <td class="mono" style="color:var(--mamas)">${minAHora(v.esperadaMin)}</td>
+        <td class="${tardAct>0?'money':''}">${tardAct>0?`+${tardAct}m`:'—'}</td>
+        <td><span class="gps-ind ${v.gpsOk!==false?'gps-valid':'gps-invalid'}"><div class="dot"></div>${v.gpsOk!==false?'OK':'ALERTA'}</span></td>
+        <td class="${acum>0?'money':''}">${acum>0?`S/${acum}`:'—'}</td>
+      </tr>`;
+    } else {
+      grid+=`<div class="unit-card">
+        <div class="uc-num" style="color:var(--muted)">U${String(i).padStart(2,'0')}</div>
+        <div class="uc-name">${CHOFERES[i-1]}</div>
+        <div class="uc-status" style="color:var(--muted)">EN BASE</div>
+        <div class="uc-gps" style="color:var(--muted)">${acum>0?`Acum S/${acum}`:''}</div>
+      </div>`;
+    }
+  }
+  document.getElementById('units-grid').innerHTML=grid;
+  document.getElementById('monitor-tbody').innerHTML=tbody||'<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:16px">Sin unidades en ruta</td></tr>';
+  document.getElementById('st-en-ruta').textContent=enRuta;
+  document.getElementById('st-tarde').textContent=tarde;
+  document.getElementById('st-gps-al').textContent=gpsAl;
+  document.getElementById('st-multas').textContent='S/'+multasHoy;
+}
+
+// ═══════════════════════════════════════════════════════
+//  HISTORIAL
+// ═══════════════════════════════════════════════════════
+function renderHistorialChofer(){
+  const u=SESSION.unidad;
+  const mis=Object.values(DATA.historialDia||{}).filter(h=>h.unidad===u);
+  let rows=mis.length===0?'<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:12px">Sin viajes hoy</td></tr>':'';
+  mis.slice().reverse().forEach(h=>{
+    rows+=`<tr>
+      <td><span class="badge badge-${h.origen==='CORIRE'?'c':'a'}">${h.origen}</span></td>
+      <td class="mono">${h.salida}</td>
+      <td class="mono">${h.mamasHora||'—'}</td>
+      <td><span class="badge badge-${h.destinoFinal==='CORIRE'?'c':'a'}">${h.destinoFinal}</span></td>
+      <td class="mono">${h.llegada}</td>
+      <td class="${h.tardanza>0?'money':'ok-txt'}">${h.tardanza>0?`+${h.tardanza}m`:'OK'}</td>
+      <td class="${h.tardanza>0?'money':''}">${h.tardanza>0?`S/${h.tardanza}`:'—'}</td>
+    </tr>`;
+  });
+  document.getElementById('historial-chofer-tbody').innerHTML=rows;
+}
+
+function renderHistorialSup(){
+  const hist=Object.values(DATA.historialDia||{});
+  let rows=hist.length===0?'<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:12px">Sin viajes hoy</td></tr>':'';
+  hist.slice().reverse().forEach(h=>{
+    const gOk=!h.gpsAlert;
+    rows+=`<tr>
+      <td><strong class="mono">U${String(h.unidad).padStart(2,'0')}</strong></td>
+      <td><span class="badge badge-${h.origen==='CORIRE'?'c':'a'}">${h.origen}</span></td>
+      <td class="mono">${h.salida}</td>
+      <td class="mono">${h.mamasHora||'—'}</td>
+      <td><span class="badge badge-${h.destinoFinal==='CORIRE'?'c':'a'}">${h.destinoFinal}</span></td>
+      <td class="mono">${h.llegada}</td>
+      <td class="${h.tardanza>0?'money':'ok-txt'}">${h.tardanza>0?`+${h.tardanza}m`:'OK'}</td>
+      <td><span class="gps-ind ${gOk?'gps-valid':'gps-invalid'}"><div class="dot"></div>${gOk?'OK':'ALERTA'}</span></td>
+      <td class="${h.tardanza>0?'money':''}">${h.tardanza>0?`S/${h.tardanza}`:'—'}</td>
+    </tr>`;
+  });
+  document.getElementById('historial-sup-tbody').innerHTML=rows;
+}
+
+// ═══════════════════════════════════════════════════════
+//  GPS ALERTAS
+// ═══════════════════════════════════════════════════════
+function renderGpsAlertas(){
+  const el=document.getElementById('gps-alertas-list');
+  const alertas=Object.values(DATA.gpsAlertas||{}).filter(a=>a.fecha===hoy());
+  if(!alertas.length){ el.innerHTML='<span style="color:var(--muted)">Sin alertas GPS hoy.</span>'; return; }
+  el.innerHTML=alertas.map(a=>`
+    <div style="display:flex;gap:9px;align-items:center;padding:7px 9px;background:var(--red-dim);border:1px solid rgba(255,71,87,.2);border-radius:6px;margin-bottom:5px;font-size:11px">
+      <span style="color:var(--red)">⚠️</span>
+      <strong style="color:var(--red)">U${String(a.unidad).padStart(2,'0')}</strong>
+      <span style="color:var(--muted2)">${a.tipo}</span>
+      <span class="mono">${a.hora}</span>
+      <span style="color:var(--muted)">${a.dist}m al punto ${a.punto}</span>
+    </div>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+//  MULTAS
+// ═══════════════════════════════════════════════════════
+function agregarMulta(){
+  const u=document.getElementById('mult-unit').value;
+  const monto=Number(document.getElementById('mult-monto').value);
+  const motivo=document.getElementById('mult-motivo').value.trim();
+  if(!u||!monto||!motivo){ showAlert('mult-alert','Completa todos los campos','err'); return; }
+  fbPush('multasExternas',{unidad:u,monto,motivo,fecha:hoy(),ts:Date.now()});
+  document.getElementById('mult-monto').value='';
+  document.getElementById('mult-motivo').value='';
+  showAlert('mult-alert',`Multa S/${monto} registrada para U${String(u).padStart(2,'0')}`,'warn');
+}
+function renderMultasLista(){
+  const hoyM=Object.entries(DATA.multasExternas||{}).filter(([,m])=>m.fecha===hoy());
+  const el=document.getElementById('multas-list');
+  if(!hoyM.length){ el.innerHTML='<p style="color:var(--muted);font-size:11px;margin-bottom:7px">Sin multas externas hoy</p>'; return; }
+  el.innerHTML=hoyM.map(([key,m])=>`
+    <div style="display:flex;align-items:center;gap:9px;padding:7px 9px;background:var(--s2);border-radius:6px;margin-bottom:5px;font-size:11px">
+      <strong>U${String(m.unidad).padStart(2,'0')}</strong>
+      <span class="money">S/${m.monto}</span>
+      <span style="flex:1;color:var(--muted2)">${m.motivo}</span>
+      <button class="btn btn-ghost btn-sm" onclick="fbRemove('multasExternas/${key}')" style="padding:2px 8px;font-size:10px">✕</button>
+    </div>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+//  CONFIG SUPERVISOR
+// ═══════════════════════════════════════════════════════
+function actualizarFormsConfig(){
+  const c=DATA.config;
+  if(!c)return;
+  ['cm','ca','am','ac','mc','ma'].forEach(k=>{ const el=document.getElementById('t-'+k); if(el)el.value=c.tiempos[k]; });
+  ['CORIRE','MAMAS','APLAO'].forEach(p=>{ const pn=p.toLowerCase();
+    const la=document.getElementById('lat-'+pn), lo=document.getElementById('lon-'+pn);
+    if(la&&c.puntos[p])la.value=c.puntos[p].lat;
+    if(lo&&c.puntos[p])lo.value=c.puntos[p].lon;
+  });
+  const gr=document.getElementById('geo-radio'); if(gr)gr.value=c.geoRadio;
+}
+function guardarTiempos(){
+  const t={cm:+document.getElementById('t-cm').value,ca:+document.getElementById('t-ca').value,
+            am:+document.getElementById('t-am').value,ac:+document.getElementById('t-ac').value,
+            mc:+document.getElementById('t-mc').value,ma:+document.getElementById('t-ma').value};
+  fbUpdate('config/tiempos',t);
+  DATA.config.tiempos=t;
+}
+function guardarPuntos(){
+  const puntos={
+    CORIRE:{lat:+document.getElementById('lat-corire').value,lon:+document.getElementById('lon-corire').value},
+    MAMAS:{lat:+document.getElementById('lat-mamas').value,lon:+document.getElementById('lon-mamas').value},
+    APLAO:{lat:+document.getElementById('lat-aplao').value,lon:+document.getElementById('lon-aplao').value}
+  };
+  const r=+document.getElementById('geo-radio').value;
+  fbUpdate('config',{puntos,geoRadio:r});
+  DATA.config.puntos=puntos; DATA.config.geoRadio=r;
+}
+
+// ═══════════════════════════════════════════════════════
+//  REPORTE MENSUAL
+// ═══════════════════════════════════════════════════════
+function actualizarMesLabel(){ document.getElementById('mes-lbl').textContent=MESES[mesActual.getMonth()]+' '+mesActual.getFullYear(); }
+function cambiarMes(d){ mesActual=new Date(mesActual.getFullYear(),mesActual.getMonth()+d,1); actualizarMesLabel(); renderReporte(); }
+
+function renderReporte(){
+  const mk=mesKey(mesActual);
+  const datos=(DATA.reporteMensual||{})[mk]||{};
+  const esMesActual=mk===mesKey(new Date());
+  let rows='',total=0;
+  for(let i=1;i<=NUM_U;i++){
+    const u=String(i);
+    let viajes=0,minT=0,multE=0,gpsAl=0;
+    if(datos[u]){ viajes=datos[u].viajes||0; minT=datos[u].minTardanza||0; multE=datos[u].multasExternas||0; gpsAl=datos[u].gpsAlertas||0; }
+    if(esMesActual){
+      viajes+=Object.values(DATA.historialDia||{}).filter(h=>h.unidad===u).length;
+      minT+=DATA.tardanzaAcum[u]||0;
+      multE+=Object.values(DATA.multasExternas||{}).filter(m=>m.unidad===u).reduce((s,m)=>s+m.monto,0);
+      gpsAl+=Object.values(DATA.gpsAlertas||{}).filter(a=>a.unidad===u&&a.fecha===hoy()).length;
+    }
+    const tot=minT+multE; total+=tot;
+    rows+=`<tr>
+      <td><strong class="mono">U${String(i).padStart(2,'0')}</strong></td>
+      <td style="text-align:center">${viajes}</td>
+      <td class="${minT>0?'money':''}" style="text-align:center">${minT}</td>
+      <td class="${minT>0?'money':''}">${minT>0?`S/ ${minT}`:'—'}</td>
+      <td class="${multE>0?'money':''}">${multE>0?`S/ ${multE}`:'—'}</td>
+      <td style="color:${gpsAl>0?'var(--yellow)':'var(--muted)'};text-align:center">${gpsAl>0?`⚠️${gpsAl}`:'—'}</td>
+      <td class="${tot>0?'money':''}" style="font-weight:700">${tot>0?`S/ ${tot}`:'—'}</td>
+      <td><span class="badge ${datos[u]&&datos[u].cerrado?'badge-late':'badge-run'}">${datos[u]&&datos[u].cerrado?'CERRADO':'ABIERTO'}</span></td>
+    </tr>`;
+  }
+  rows+=`<tr style="background:var(--s2)">
+    <td colspan="6" style="text-align:right;font-weight:700;color:var(--muted2)">TOTAL DESCUENTOS:</td>
+    <td class="money" style="font-size:14px;font-weight:700">S/ ${total}</td><td></td>
+  </tr>`;
+  document.getElementById('reporte-tbody').innerHTML=rows;
+}
+
+function cerrarMes(){
+  if(!confirm('¿Cerrar el mes? Se consolidan todas las multas y tardanzas en el reporte.'))return;
+  const mk=mesKey(mesActual);
+  const nuevo={};
+  const hist=Object.values(DATA.historialDia||{});
+  const multext=Object.values(DATA.multasExternas||{});
+  const gpsAl=Object.values(DATA.gpsAlertas||{});
+  for(let i=1;i<=NUM_U;i++){
+    const u=String(i);
+    const prev=(DATA.reporteMensual[mk]||{})[u]||{};
+    nuevo[u]={
+      viajes:(prev.viajes||0)+hist.filter(h=>h.unidad===u).length,
+      minTardanza:(prev.minTardanza||0)+(DATA.tardanzaAcum[u]||0),
+      multasExternas:(prev.multasExternas||0)+multext.filter(m=>m.unidad===u).reduce((s,m)=>s+m.monto,0),
+      gpsAlertas:(prev.gpsAlertas||0)+gpsAl.filter(a=>a.unidad===u).length,
+      cerrado:true
+    };
+  }
+  fbUpdate('reporteMensual',{[mk]:nuevo});
+  fbSet('historialDia',null);
+  fbSet('tardanzaAcum',null);
+  fbSet('multasExternas',null);
+  fbSet('gpsAlertas',null);
+  fbSet('viajesActivos',null);
+  DATA.historialDia={}; DATA.tardanzaAcum={}; DATA.multasExternas={}; DATA.gpsAlertas={}; DATA.viajesActivos={};
+  showAlert('reporte-alert','🔒 Mes cerrado y guardado en Firebase.','ok');
+  renderReporte(); renderMonitor();
+}
+
+// ═══════════════════════════════════════════════════════
+//  SELECTS
+// ═══════════════════════════════════════════════════════
+function poblarSelects(){
+  ['login-unit','mult-unit'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el)return;
+    el.innerHTML='<option value="">— Selecciona —</option>';
+    for(let i=1;i<=NUM_U;i++) el.innerHTML+=`<option value="${i}">U${String(i).padStart(2,'0')} · ${CHOFERES[i-1]}</option>`;
+  });
+  const h=ahoraTxt();
+  // Solo hora de salida es editable por el chofer
+  const sh=document.getElementById('s-hora'); if(sh&&!sh.value)sh.value=h;
+}
+
+// ═══════════════════════════════════════════════════════
+//  ALERTS
+// ═══════════════════════════════════════════════════════
+function showAlert(id,msg,type){
+  const el=document.getElementById(id);
+  if(!el)return;
+  el.className=`alert alert-${type==='ok'?'ok':type==='warn'?'warn':'err'} show`;
+  el.textContent=msg;
+  setTimeout(()=>el.classList.remove('show'),6000);
+}
+function showSetupAlert(msg,type){ showAlert('setup-alert',msg,type); }
+
+// ═══════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════
+// Poblar login-unit aunque no se haya logueado aún
+(()=>{
+  const el=document.getElementById('login-unit');
+  el.innerHTML='<option value="">— Tu unidad —</option>';
+  for(let i=1;i<=NUM_U;i++) el.innerHTML+=`<option value="${i}">U${String(i).padStart(2,'0')} · ${CHOFERES[i-1]}</option>`;
+})();
+
+// ── CONFIG FIREBASE RUTA CORIRE-APLAO ──
+const FIREBASE_CFG_PRESET = {
+  apiKey:            "AIzaSyAYsETvB3xPRqu9KXw9iCeUUanZrDBuifM",
+  authDomain:        "ruta-corire-aplao.firebaseapp.com",
+  databaseURL:       "https://ruta-corire-aplao-default-rtdb.firebaseio.com",
+  projectId:         "ruta-corire-aplao",
+  storageBucket:     "ruta-corire-aplao.firebasestorage.app",
+  messagingSenderId: "930338897342",
+  appId:             "1:930338897342:web:2a6ea7ffb1caf149f90def",
+  measurementId:     "G-QWL4R9PEJM"
+};
+// Auto-conectar sin pantalla de setup
+(()=>{
+  localStorage.setItem('fb_cfg_v2', JSON.stringify(FIREBASE_CFG_PRESET));
+  document.getElementById('setup-screen').style.display='none';
+  document.getElementById('login-screen').style.display='flex';
+  iniciarFirebase(FIREBASE_CFG_PRESET);
+})();
+
+actualizarMesLabel();
+</script>
+</body>
+</html>
