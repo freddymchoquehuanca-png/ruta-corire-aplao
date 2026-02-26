@@ -108,7 +108,7 @@ select:focus,input:focus{border-color:var(--corire)}
 .topbar-logo{font-family:var(--fd);font-size:20px;font-weight:800;letter-spacing:2px}
 .topbar-logo .c{color:var(--corire)} .topbar-logo .sep2{color:var(--muted)} .topbar-logo .a{color:var(--aplao)}
 .user-pill{background:var(--s3);border:1px solid var(--border2);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:600;letter-spacing:.5px}
-.clock{font-family:var(--fm);font-size:12px;color:var(--mamas);letter-spacing:1px}
+.clock{font-family:var(--fm);font-size:22px;font-weight:600;color:var(--mamas);letter-spacing:2px;line-height:1}
 .logout-btn{background:none;border:1px solid var(--border2);color:var(--muted);border-radius:6px;padding:4px 9px;cursor:pointer;font-size:11px;transition:.2s}
 .logout-btn:hover{border-color:var(--red);color:var(--red)}
 
@@ -252,6 +252,35 @@ tr:hover td{background:rgba(255,255,255,.02)}
 .gps-ind .dot{width:5px;height:5px;border-radius:50%}
 .gps-valid .dot{background:var(--mamas)}
 .gps-invalid .dot{background:var(--red)}
+
+
+/* ── COUNTDOWN ── */
+.countdown-box{
+  background:var(--s2);border:1px solid var(--border2);border-radius:10px;
+  padding:10px 14px;margin-bottom:10px;display:none;
+}
+.countdown-box.show{display:block}
+.cd-label{font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:3px}
+.cd-timer{font-family:var(--fm);font-size:28px;font-weight:600;line-height:1}
+.cd-timer.green{color:var(--mamas)} .cd-timer.yellow{color:var(--yellow)} .cd-timer.red{color:var(--red)}
+.cd-bar{height:4px;background:var(--s3);border-radius:2px;margin-top:6px;overflow:hidden}
+.cd-fill{height:100%;border-radius:2px;transition:width 1s linear}
+
+/* ── AUTO MARK FLASH ── */
+@keyframes autoFlash{0%{opacity:1}50%{opacity:.3}100%{opacity:1}}
+.auto-flash{animation:autoFlash .5s ease 3}
+
+/* ── LIVE MAP ── */
+.live-map{
+  background:var(--s2);border:1px solid var(--border);border-radius:10px;
+  padding:12px;margin-bottom:12px;position:relative;overflow:hidden;
+}
+.live-map-title{font-family:var(--fd);font-size:12px;font-weight:700;letter-spacing:2px;color:var(--muted2);margin-bottom:10px}
+.route-svg-wrap{width:100%;overflow:visible}
+.unit-dot{transition:cx .5s,cy .5s}
+
+/* ── EXPORT BTN ── */
+.export-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
 
 /* ── SCROLLBAR ── */
 ::-webkit-scrollbar{width:4px;height:4px}
@@ -409,6 +438,20 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div class="step" id="step-3"></div>
     </div>
 
+    <!-- COUNTDOWN MAMÁS -->
+    <div class="countdown-box" id="cd-mamas">
+      <div class="cd-label">⏱️ TIEMPO PARA LLEGAR A MAMÁS</div>
+      <div class="cd-timer green" id="cd-mamas-val">--:--</div>
+      <div class="cd-bar"><div class="cd-fill" id="cd-mamas-fill" style="width:100%;background:var(--mamas)"></div></div>
+    </div>
+
+    <!-- COUNTDOWN DESTINO -->
+    <div class="countdown-box" id="cd-destino">
+      <div class="cd-label">⏱️ TIEMPO PARA LLEGAR AL DESTINO</div>
+      <div class="cd-timer green" id="cd-destino-val">--:--</div>
+      <div class="cd-bar"><div class="cd-fill" id="cd-destino-fill" style="width:100%;background:var(--corire)"></div></div>
+    </div>
+
     <!-- SALIDA -->
     <div class="card card-corire" id="card-salida">
       <div class="card-title">🚀 PASO 1 — REGISTRAR SALIDA</div>
@@ -484,7 +527,10 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
     <!-- Mis viajes hoy -->
     <div class="card card-dark">
-      <div class="card-title">📋 MIS VIAJES HOY</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div class="card-title" style="margin-bottom:0">📋 MIS VIAJES HOY</div>
+        <button class="btn btn-ghost btn-sm" onclick="exportarViajes()" style="font-size:11px">📥 EXPORTAR</button>
+      </div>
       <div class="tbl-wrap">
         <table>
           <thead><tr><th>Origen</th><th>Salida</th><th>Mamás</th><th>Destino</th><th>Llegada</th><th>Tardanza</th><th>S/</th></tr></thead>
@@ -503,8 +549,32 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div class="stat"><div class="stat-val" id="st-gps-al" style="color:var(--yellow)">0</div><div class="stat-lbl">GPS Alert</div></div>
       <div class="stat"><div class="stat-val" id="st-multas" style="color:var(--red)">S/0</div><div class="stat-lbl">Multas hoy</div></div>
     </div>
+    <!-- MAPA VISUAL RUTA -->
+    <div class="live-map">
+      <div class="live-map-title">🗺️ MAPA DE RUTA EN TIEMPO REAL · <span id="monitor-ts" style="color:var(--mamas);font-family:var(--fm);font-size:10px"></span></div>
+      <svg id="route-svg" viewBox="0 0 340 80" width="100%" style="display:block">
+        <!-- Línea de ruta -->
+        <line x1="30" y1="40" x2="310" y2="40" stroke="#2e3d50" stroke-width="3"/>
+        <!-- Segmento CORIRE-MAMÁS -->
+        <line x1="30" y1="40" x2="170" y2="40" stroke="#243040" stroke-width="3"/>
+        <!-- Puntos fijos -->
+        <circle cx="30" cy="40" r="12" fill="#0e1318" stroke="#3b9eff" stroke-width="2"/>
+        <text x="30" y="44" text-anchor="middle" fill="#3b9eff" font-size="7" font-family="Barlow Condensed" font-weight="700">COR</text>
+        <text x="30" y="60" text-anchor="middle" fill="#3b9eff" font-size="7" font-family="Barlow Condensed">CORIRE</text>
+        <circle cx="170" cy="40" r="12" fill="#0e1318" stroke="#3bff8a" stroke-width="2"/>
+        <text x="170" y="44" text-anchor="middle" fill="#3bff8a" font-size="7" font-family="Barlow Condensed" font-weight="700">MMA</text>
+        <text x="170" y="60" text-anchor="middle" fill="#3bff8a" font-size="7" font-family="Barlow Condensed">MAMÁS</text>
+        <circle cx="310" cy="40" r="12" fill="#0e1318" stroke="#ff9a3b" stroke-width="2"/>
+        <text x="310" y="44" text-anchor="middle" fill="#ff9a3b" font-size="7" font-family="Barlow Condensed" font-weight="700">APL</text>
+        <text x="310" y="60" text-anchor="middle" fill="#ff9a3b" font-size="7" font-family="Barlow Condensed">APLAO</text>
+        <!-- Unidades (puntos dinámicos) -->
+        <g id="svg-units"></g>
+      </svg>
+      <div style="font-size:9px;color:var(--muted);margin-top:4px;text-align:center">Cada punto = una unidad en ruta. Posición estimada según tiempo transcurrido.</div>
+    </div>
+
     <div class="card card-dark">
-      <div class="card-title">ESTADO EN TIEMPO REAL · <span id="monitor-ts" style="color:var(--mamas);font-family:var(--fm);font-size:10px"></span></div>
+      <div class="card-title">ESTADO EN TIEMPO REAL</div>
       <div class="units-grid" id="units-grid"></div>
     </div>
     <div class="card card-dark">
@@ -573,7 +643,15 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div id="gps-alertas-list" style="font-size:11px;color:var(--muted)">Sin alertas.</div>
     </div>
     <div class="card card-dark">
-      <div class="card-title">📋 HISTORIAL HOY</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div class="card-title" style="margin-bottom:0">📋 HISTORIAL HOY</div>
+        <div class="export-row" style="margin-bottom:0">
+          <select id="export-unit-sel" style="padding:6px 10px;font-size:11px;width:auto;margin-bottom:0">
+            <option value="all">Todas las unidades</option>
+          </select>
+          <button class="btn btn-ghost btn-sm" onclick="exportarViajesSup()" style="font-size:11px">📥 EXPORTAR CSV</button>
+        </div>
+      </div>
       <div class="tbl-wrap">
         <table>
           <thead><tr><th>U#</th><th>Origen</th><th>Salida</th><th>Mamás</th><th>Destino</th><th>Llegada</th><th>Tardanza</th><th>GPS</th><th>S/</th></tr></thead>
@@ -959,6 +1037,9 @@ function registrarSalida(){
   document.getElementById('card-mamas').style.opacity='1';
   document.getElementById('card-mamas').style.pointerEvents='auto';
   setStep(2);
+  window._autoMamasLock = false;
+  window._autoLlegadaLock = false;
+  iniciarCountdowns(STATE_viaje_actual());
 }
 
 function registrarMamas(){
@@ -1073,6 +1154,7 @@ function renderMonitor(){
   document.getElementById('st-tarde').textContent=tarde;
   document.getElementById('st-gps-al').textContent=gpsAl;
   document.getElementById('st-multas').textContent='S/'+multasHoy;
+  renderLiveMap();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1318,6 +1400,258 @@ const FIREBASE_CFG_PRESET = {
 })();
 
 actualizarMesLabel();
+poblarExportSelect();
+function STATE_viaje_actual(){ return DATA.viajesActivos[SESSION.unidad]||null; }
+
+// ═══════════════════════════════════════════════════════
+//  COUNTDOWN + AUTO-MARK
+// ═══════════════════════════════════════════════════════
+let cdInterval = null;
+let cdMamasTotal = 0, cdDestinoTotal = 0;
+let cdMamasStart = null, cdDestinoStart = null;
+
+function iniciarCountdowns(viaje) {
+  // Countdown MAMÁS: desde salida hasta hora esperada mamás
+  const now = horaAMin(ahoraTxt());
+  const mamasEsp = viaje.salidaMin + tiempoEsp(viaje.origen, 'MAMAS');
+  const destinoEsp = viaje.esperadaMin;
+
+  cdMamasTotal = tiempoEsp(viaje.origen, 'MAMAS') * 60; // en segundos
+  cdDestinoTotal = tiempoEsp(viaje.origen, viaje.destino) * 60;
+
+  // Segundos restantes
+  const ahoraMs = Date.now();
+  const salidaMs = ahoraMs - ((now - viaje.salidaMin) * 60000);
+  cdMamasStart  = salidaMs;
+  cdDestinoStart = salidaMs;
+
+  document.getElementById('cd-mamas').classList.add('show');
+  document.getElementById('cd-destino').classList.add('show');
+
+  if (cdInterval) clearInterval(cdInterval);
+  cdInterval = setInterval(() => tickCountdown(viaje), 1000);
+  tickCountdown(viaje);
+}
+
+function ocultarCountdowns() {
+  if (cdInterval) clearInterval(cdInterval);
+  document.getElementById('cd-mamas').classList.remove('show');
+  document.getElementById('cd-destino').classList.remove('show');
+}
+
+function tickCountdown(viaje) {
+  const ahoraMin = horaAMin(ahoraTxt());
+  const ahoraS = Date.now();
+
+  // MAMÁS countdown
+  const mamasEspMin = viaje.salidaMin + tiempoEsp(viaje.origen, 'MAMAS');
+  const restMamasS = (mamasEspMin - ahoraMin) * 60;
+  const elMamas = document.getElementById('cd-mamas-val');
+  const fillMamas = document.getElementById('cd-mamas-fill');
+
+  if (!viaje.mamasHora) {
+    if (restMamasS > 0) {
+      const m = Math.floor(restMamasS / 60), s = restMamasS % 60;
+      elMamas.textContent = String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+      const pct = Math.min(100, (restMamasS / (tiempoEsp(viaje.origen,'MAMAS')*60)) * 100);
+      fillMamas.style.width = pct + '%';
+      elMamas.className = 'cd-timer ' + (pct > 50 ? 'green' : pct > 20 ? 'yellow' : 'red');
+      fillMamas.style.background = pct > 50 ? 'var(--mamas)' : pct > 20 ? 'var(--yellow)' : 'var(--red)';
+
+      // AUTO-MARK: si está en zona Mamás y tiempo llegó
+      if (restMamasS <= 0 && gpsPos && enZona('MAMAS') && SESSION.unidad) {
+        autoMarcarMamas(viaje);
+      }
+    } else {
+      elMamas.textContent = '+' + Math.abs(Math.floor(restMamasS/60)) + ' min TARDE';
+      elMamas.className = 'cd-timer red';
+      fillMamas.style.width = '100%';
+      fillMamas.style.background = 'var(--red)';
+      // Auto-mark si en zona aunque llegue tarde
+      if (gpsPos && enZona('MAMAS') && SESSION.unidad && !window._autoMamasLock) {
+        autoMarcarMamas(viaje);
+      }
+    }
+  } else {
+    elMamas.textContent = '✅ REGISTRADO ' + viaje.mamasHora;
+    elMamas.className = 'cd-timer green';
+    fillMamas.style.width = '100%';
+    fillMamas.style.background = 'var(--mamas)';
+  }
+
+  // DESTINO countdown
+  const destEspMin = viaje.esperadaMin;
+  const restDestS = (destEspMin - ahoraMin) * 60;
+  const elDest = document.getElementById('cd-destino-val');
+  const fillDest = document.getElementById('cd-destino-fill');
+
+  if (restDestS > 0) {
+    const m = Math.floor(restDestS / 60), s = restDestS % 60;
+    elDest.textContent = String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+    const pct = Math.min(100, (restDestS / (tiempoEsp(viaje.origen,viaje.destino)*60)) * 100);
+    fillDest.style.width = pct + '%';
+    elDest.className = 'cd-timer ' + (pct > 50 ? 'green' : pct > 20 ? 'yellow' : 'red');
+    fillDest.style.background = pct > 50 ? 'var(--corire)' : pct > 20 ? 'var(--yellow)' : 'var(--red)';
+  } else {
+    elDest.textContent = '+' + Math.abs(Math.floor(restDestS/60)) + ' min TARDE';
+    elDest.className = 'cd-timer red';
+    fillDest.style.width = '100%';
+    fillDest.style.background = 'var(--red)';
+  }
+}
+
+// AUTO-MARK MAMÁS
+window._autoMamasLock = false;
+function autoMarcarMamas(viaje) {
+  if (window._autoMamasLock) return;
+  window._autoMamasLock = true;
+  const hora = ahoraTxt();
+  const u = SESSION.unidad;
+  let gpsSnap = gpsPos ? {lat:gpsPos.lat,lon:gpsPos.lon,acc:Math.round(gpsPos.acc)} : null;
+  fbUpdate('viajesActivos/'+u, {mamasHora:hora, gpsMamas:gpsSnap, gpsOkMamas:true});
+
+  // Flash visual
+  document.getElementById('card-mamas').classList.add('auto-flash');
+  showAlert('mamas-alert', '🤖 AUTO: Mamás registrado automáticamente a las ' + hora, 'ok');
+
+  document.getElementById('card-llegada').style.opacity='1';
+  document.getElementById('card-llegada').style.pointerEvents='auto';
+  setStep(3);
+  setTimeout(() => document.getElementById('card-mamas').classList.remove('auto-flash'), 2000);
+}
+
+// AUTO-MARK LLEGADA: cuando GPS entra en zona destino
+window._autoLlegadaLock = false;
+function checkAutoLlegada(viaje) {
+  if (window._autoLlegadaLock) return;
+  if (!viaje || !viaje.mamasHora) return;
+  if (!viaje.destino) return;
+  if (!gpsPos) return;
+  if (!enZona(viaje.destino)) return;
+  // Solo auto si el tiempo esperado ya casi llegó (dentro de ±5 min)
+  const ahoraMin = horaAMin(ahoraTxt());
+  if (ahoraMin < viaje.esperadaMin - 5) return; // muy temprano, no auto
+
+  window._autoLlegadaLock = true;
+  const hora = ahoraTxt();
+  const u = SESSION.unidad;
+  const llegadaMin = horaAMin(hora);
+  const tardMin = Math.max(0, llegadaMin - viaje.esperadaMin);
+  const acumNuevo = (DATA.tardanzaAcum[u]||0) + tardMin;
+
+  const viajeComp = {...viaje, destinoFinal:viaje.destino, llegada:hora, llegadaMin,
+    tardanza:tardMin, gpsLlegada:{lat:gpsPos.lat,lon:gpsPos.lon,acc:Math.round(gpsPos.acc)},
+    gpsOkLlegada:true, gpsAlert:false, completado:Date.now()};
+
+  fbRemove('viajesActivos/'+u);
+  fbPush('historialDia', viajeComp);
+  fbSet('tardanzaAcum/'+u, acumNuevo);
+
+  document.getElementById('card-llegada').classList.add('auto-flash');
+  showAlert('llegada-alert',
+    tardMin > 0
+      ? '🤖 AUTO: Llegada registrada con ' + tardMin + ' min tardanza · S/' + tardMin
+      : '🤖 AUTO: Llegada a tiempo en ' + viaje.destino + ' · ' + hora, 'ok');
+
+  ocultarCountdowns();
+  setStep(1);
+  window._autoMamasLock = false;
+  window._autoLlegadaLock = false;
+  document.getElementById('card-mamas').style.opacity='0.4';
+  document.getElementById('card-mamas').style.pointerEvents='none';
+  document.getElementById('card-llegada').style.opacity='0.4';
+  document.getElementById('card-llegada').style.pointerEvents='none';
+  document.getElementById('s-origen').value='';
+  document.getElementById('l-destino').value='';
+  const ddR=document.getElementById('destino-display');
+  if(ddR){ ddR.textContent='— Automático según origen —'; ddR.style.color=''; ddR.style.borderColor=''; }
+  renderHistorialChofer();
+}
+
+// ═══════════════════════════════════════════════════════
+//  LIVE MAP SVG
+// ═══════════════════════════════════════════════════════
+function renderLiveMap() {
+  const svgG = document.getElementById('svg-units');
+  if (!svgG) return;
+  const now = horaAMin(ahoraTxt());
+  let html = '';
+  const colors = ['#3b9eff','#ff9a3b','#3bff8a','#ff4757','#ffd32a','#a29bfe','#fd79a8','#00cec9','#e17055','#74b9ff'];
+
+  Object.entries(DATA.viajesActivos || {}).forEach(([u, v], idx) => {
+    if (!v) return;
+    // Posición estimada en SVG (30=CORIRE, 170=MAMAS, 310=APLAO)
+    const totalMin = tiempoEsp(v.origen, v.destino);
+    const elapsed = Math.max(0, now - v.salidaMin);
+    const pct = Math.min(1, elapsed / totalMin);
+
+    let x1, x2;
+    if (v.origen === 'CORIRE') { x1 = 30; x2 = 310; }
+    else { x1 = 310; x2 = 30; }
+    const cx = x1 + (x2 - x1) * pct;
+    const tardAct = Math.max(0, now - v.esperadaMin);
+    const col = tardAct > 0 ? '#ff4757' : (colors[idx % colors.length]);
+    const label = 'U' + String(u).padStart(2,'0');
+
+    html += `<g>
+      <circle cx="${cx.toFixed(1)}" cy="40" r="8" fill="${col}" opacity="0.9"/>
+      <text x="${cx.toFixed(1)}" y="28" text-anchor="middle" fill="${col}" font-size="7" font-family="Barlow Condensed" font-weight="700">${label}</text>
+    </g>`;
+  });
+  svgG.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════
+//  EXPORT CSV
+// ═══════════════════════════════════════════════════════
+function exportarViajes() {
+  const u = SESSION.unidad;
+  const mis = Object.values(DATA.historialDia || {}).filter(h => h.unidad === u);
+  if (!mis.length) { alert('Sin viajes para exportar hoy'); return; }
+  descargarCSV(mis, 'viajes_U' + String(u).padStart(2,'0') + '_' + hoy() + '.csv');
+}
+
+function exportarViajesSup() {
+  const sel = document.getElementById('export-unit-sel');
+  const filtro = sel ? sel.value : 'all';
+  let datos = Object.values(DATA.historialDia || {});
+  if (filtro !== 'all') datos = datos.filter(h => h.unidad === filtro);
+  if (!datos.length) { alert('Sin viajes para exportar'); return; }
+  const nombre = filtro === 'all' ? 'viajes_todas_' + hoy() : 'viajes_U' + String(filtro).padStart(2,'0') + '_' + hoy();
+  descargarCSV(datos, nombre + '.csv');
+}
+
+function descargarCSV(datos, nombre) {
+  const headers = ['Unidad','Fecha','Origen','Hora Salida','Hora Mamás','Destino','Hora Llegada','Min Tardanza','Multa S/','GPS Alerta'];
+  const rows = datos.map(h => [
+    'U'+String(h.unidad).padStart(2,'0'),
+    h.fecha||hoy(),
+    h.origen,
+    h.salida,
+    h.mamasHora||'',
+    h.destinoFinal||h.destino,
+    h.llegada||'',
+    h.tardanza||0,
+    h.tardanza||0,
+    h.gpsAlert?'SI':'NO'
+  ]);
+  const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = nombre;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+// Poblar select de unidades en export supervisor
+function poblarExportSelect() {
+  const sel = document.getElementById('export-unit-sel');
+  if (!sel) return;
+  sel.innerHTML = '<option value="all">Todas las unidades</option>';
+  for(let i=1;i<=NUM_U;i++) sel.innerHTML+=`<option value="${i}">U${String(i).padStart(2,'0')}</option>`;
+}
+
 </script>
 </body>
 </html>
