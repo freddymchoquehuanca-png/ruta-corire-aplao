@@ -438,19 +438,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div class="step" id="step-3"></div>
     </div>
 
-    <!-- COUNTDOWN MAMÁS -->
-    <div class="countdown-box" id="cd-mamas">
-      <div class="cd-label">⏱️ TIEMPO PARA LLEGAR A MAMÁS</div>
-      <div class="cd-timer green" id="cd-mamas-val">--:--</div>
-      <div class="cd-bar"><div class="cd-fill" id="cd-mamas-fill" style="width:100%;background:var(--mamas)"></div></div>
-    </div>
 
-    <!-- COUNTDOWN DESTINO -->
-    <div class="countdown-box" id="cd-destino">
-      <div class="cd-label">⏱️ TIEMPO PARA LLEGAR AL DESTINO</div>
-      <div class="cd-timer green" id="cd-destino-val">--:--</div>
-      <div class="cd-bar"><div class="cd-fill" id="cd-destino-fill" style="width:100%;background:var(--corire)"></div></div>
-    </div>
 
     <!-- SALIDA -->
     <div class="card card-corire" id="card-salida">
@@ -486,6 +474,23 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <div class="prox-lbl">📍 Dist. a Mamás: <span id="prox-dist-mamas" style="color:var(--yellow);font-family:var(--fm)">—</span></div>
         <div class="prox-bar"><div class="prox-fill" id="prox-fill-mamas" style="width:0%"></div></div>
       </div>
+
+      <!-- COUNTDOWN MAMÁS inside paso 2 -->
+      <div class="countdown-box" id="cd-mamas">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <div class="cd-label" style="margin-bottom:0">⏱️ TIEMPO PARA LLEGAR A MAMÁS</div>
+        </div>
+        <div class="cd-timer green" id="cd-mamas-val">--:--</div>
+        <div class="cd-bar"><div class="cd-fill" id="cd-mamas-fill" style="width:100%;background:var(--mamas)"></div></div>
+      </div>
+
+      <!-- CANCELAR AUTO MAMÁS -->
+      <div id="cancel-mamas-box" style="display:none;background:var(--red-dim);border:1px solid rgba(255,71,87,.4);border-radius:10px;padding:14px;text-align:center;margin-bottom:10px">
+        <div style="font-family:var(--fd);font-size:18px;font-weight:800;color:var(--red);margin-bottom:4px">🤖 AUTO-MARCANDO EN <span id="cancel-mamas-count">3</span>s</div>
+        <div style="font-size:11px;color:var(--muted2);margin-bottom:10px">El sistema marcará Mamás automáticamente</div>
+        <button class="btn btn-danger" onclick="cancelarAutoMamas()" style="max-width:200px;margin:0 auto">✋ CANCELAR</button>
+      </div>
+
       <div class="geo-lock" id="geo-lock-mamas">
         <h3>📍 FUERA DE ZONA MAMÁS</h3>
         <p>Acércate al punto Mamás. Dist: <strong id="dist-mamas-txt">—</strong></p>
@@ -516,6 +521,23 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <div class="prox-lbl">📍 Dist. al destino: <span id="prox-dist-llegada" style="color:var(--yellow);font-family:var(--fm)">—</span></div>
         <div class="prox-bar"><div class="prox-fill" id="prox-fill-llegada" style="width:0%"></div></div>
       </div>
+
+      <!-- COUNTDOWN DESTINO inside paso 3 -->
+      <div class="countdown-box" id="cd-destino">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <div class="cd-label" style="margin-bottom:0">⏱️ TIEMPO PARA LLEGAR AL DESTINO</div>
+        </div>
+        <div class="cd-timer green" id="cd-destino-val">--:--</div>
+        <div class="cd-bar"><div class="cd-fill" id="cd-destino-fill" style="width:100%;background:var(--corire)"></div></div>
+      </div>
+
+      <!-- CANCELAR AUTO LLEGADA -->
+      <div id="cancel-llegada-box" style="display:none;background:var(--red-dim);border:1px solid rgba(255,71,87,.4);border-radius:10px;padding:14px;text-align:center;margin-bottom:10px">
+        <div style="font-family:var(--fd);font-size:18px;font-weight:800;color:var(--red);margin-bottom:4px">🤖 AUTO-REGISTRANDO EN <span id="cancel-llegada-count">3</span>s</div>
+        <div style="font-size:11px;color:var(--muted2);margin-bottom:10px">El sistema registrará la llegada automáticamente</div>
+        <button class="btn btn-danger" onclick="cancelarAutoLlegada()" style="max-width:200px;margin:0 auto">✋ CANCELAR</button>
+      </div>
+
       <div class="geo-lock" id="geo-lock-llegada">
         <h3>📍 FUERA DEL DESTINO</h3>
         <p>Debes estar en el destino. Dist: <strong id="dist-llegada-txt">—</strong></p>
@@ -1037,8 +1059,7 @@ function registrarSalida(){
   document.getElementById('card-mamas').style.opacity='1';
   document.getElementById('card-mamas').style.pointerEvents='auto';
   setStep(2);
-  window._autoMamasLock = false;
-  window._autoLlegadaLock = false;
+  resetAutoLocks();
   iniciarCountdowns(STATE_viaje_actual());
 }
 
@@ -1404,30 +1425,44 @@ poblarExportSelect();
 function STATE_viaje_actual(){ return DATA.viajesActivos[SESSION.unidad]||null; }
 
 // ═══════════════════════════════════════════════════════
-//  COUNTDOWN + AUTO-MARK
+//  COUNTDOWN + AUTO-MARK (con segundos, sonido, cancelar)
 // ═══════════════════════════════════════════════════════
 let cdInterval = null;
-let cdMamasTotal = 0, cdDestinoTotal = 0;
-let cdMamasStart = null, cdDestinoStart = null;
+window._autoMamasLock = false;
+window._autoLlegadaLock = false;
+window._cancelMamas = false;
+window._cancelLlegada = false;
+let _autoMamasTimer = null;
+let _autoLlegadaTimer = null;
+
+// ── SONIDO beep (Web Audio API) ──
+function beep(freq=880, dur=200, vol=0.3) {
+  try {
+    const ctx = new (window.AudioContext||window.webkitAudioContext||window.AudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(vol, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur/1000);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + dur/1000);
+  } catch(e) {}
+}
+function beepEntrada() {
+  // 3 beeps rápidos al entrar en zona
+  beep(880, 150, 0.4);
+  setTimeout(()=>beep(880,150,0.4), 200);
+  setTimeout(()=>beep(1100,300,0.5), 400);
+}
+function beepAutoMarcado() {
+  beep(1100,200,0.5);
+  setTimeout(()=>beep(1320,400,0.6), 250);
+}
 
 function iniciarCountdowns(viaje) {
-  // Countdown MAMÁS: desde salida hasta hora esperada mamás
-  const now = horaAMin(ahoraTxt());
-  const mamasEsp = viaje.salidaMin + tiempoEsp(viaje.origen, 'MAMAS');
-  const destinoEsp = viaje.esperadaMin;
-
-  cdMamasTotal = tiempoEsp(viaje.origen, 'MAMAS') * 60; // en segundos
-  cdDestinoTotal = tiempoEsp(viaje.origen, viaje.destino) * 60;
-
-  // Segundos restantes
-  const ahoraMs = Date.now();
-  const salidaMs = ahoraMs - ((now - viaje.salidaMin) * 60000);
-  cdMamasStart  = salidaMs;
-  cdDestinoStart = salidaMs;
-
+  if (!viaje) return;
   document.getElementById('cd-mamas').classList.add('show');
-  document.getElementById('cd-destino').classList.add('show');
-
   if (cdInterval) clearInterval(cdInterval);
   cdInterval = setInterval(() => tickCountdown(viaje), 1000);
   tickCountdown(viaje);
@@ -1435,128 +1470,189 @@ function iniciarCountdowns(viaje) {
 
 function ocultarCountdowns() {
   if (cdInterval) clearInterval(cdInterval);
-  document.getElementById('cd-mamas').classList.remove('show');
-  document.getElementById('cd-destino').classList.remove('show');
+  const cm = document.getElementById('cd-mamas');
+  const cd = document.getElementById('cd-destino');
+  if(cm) cm.classList.remove('show');
+  if(cd) cd.classList.remove('show');
 }
 
 function tickCountdown(viaje) {
+  // Recalcular viaje fresco desde DATA
+  const v = DATA.viajesActivos[SESSION.unidad] || viaje;
+  if (!v) return;
+
   const ahoraMin = horaAMin(ahoraTxt());
-  const ahoraS = Date.now();
+  const ahoraS = new Date().getSeconds();
 
-  // MAMÁS countdown
-  const mamasEspMin = viaje.salidaMin + tiempoEsp(viaje.origen, 'MAMAS');
-  const restMamasS = (mamasEspMin - ahoraMin) * 60;
-  const elMamas = document.getElementById('cd-mamas-val');
-  const fillMamas = document.getElementById('cd-mamas-fill');
-
-  if (!viaje.mamasHora) {
-    if (restMamasS > 0) {
-      const m = Math.floor(restMamasS / 60), s = restMamasS % 60;
-      elMamas.textContent = String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
-      const pct = Math.min(100, (restMamasS / (tiempoEsp(viaje.origen,'MAMAS')*60)) * 100);
-      fillMamas.style.width = pct + '%';
-      elMamas.className = 'cd-timer ' + (pct > 50 ? 'green' : pct > 20 ? 'yellow' : 'red');
-      fillMamas.style.background = pct > 50 ? 'var(--mamas)' : pct > 20 ? 'var(--yellow)' : 'var(--red)';
-
-      // AUTO-MARK: si está en zona Mamás y tiempo llegó
-      if (restMamasS <= 0 && gpsPos && enZona('MAMAS') && SESSION.unidad) {
-        autoMarcarMamas(viaje);
-      }
-    } else {
-      elMamas.textContent = '+' + Math.abs(Math.floor(restMamasS/60)) + ' min TARDE';
-      elMamas.className = 'cd-timer red';
-      fillMamas.style.width = '100%';
-      fillMamas.style.background = 'var(--red)';
-      // Auto-mark si en zona aunque llegue tarde
-      if (gpsPos && enZona('MAMAS') && SESSION.unidad && !window._autoMamasLock) {
-        autoMarcarMamas(viaje);
+  // ── MAMÁS countdown ──
+  if (!v.mamasHora) {
+    const mamasEspMin = v.salidaMin + tiempoEsp(v.origen, 'MAMAS');
+    const restS = (mamasEspMin - ahoraMin) * 60 - ahoraS % 60;
+    const totalS = tiempoEsp(v.origen, 'MAMAS') * 60;
+    const elV = document.getElementById('cd-mamas-val');
+    const elF = document.getElementById('cd-mamas-fill');
+    if (elV) {
+      if (restS > 0) {
+        const mm = Math.floor(restS/60), ss = restS%60;
+        elV.textContent = String(mm).padStart(2,'0') + ':' + String(ss).padStart(2,'0');
+        const pct = Math.min(100, (restS/totalS)*100);
+        const col = pct>50?'green':pct>20?'yellow':'red';
+        elV.className = 'cd-timer '+col;
+        if(elF){ elF.style.width=pct+'%'; elF.style.background=pct>50?'var(--mamas)':pct>20?'var(--yellow)':'var(--red)'; }
+      } else {
+        const late = Math.abs(Math.floor(restS/60));
+        elV.textContent = '+'+late+' min TARDE';
+        elV.className = 'cd-timer red';
+        if(elF){ elF.style.width='100%'; elF.style.background='var(--red)'; }
       }
     }
+    // Auto-mark check
+    if (gpsPos && enZona('MAMAS') && !window._autoMamasLock) {
+      iniciarAutoMamas(v);
+    }
   } else {
-    elMamas.textContent = '✅ REGISTRADO ' + viaje.mamasHora;
-    elMamas.className = 'cd-timer green';
-    fillMamas.style.width = '100%';
-    fillMamas.style.background = 'var(--mamas)';
+    const elV = document.getElementById('cd-mamas-val');
+    if(elV){ elV.textContent='✅ '+v.mamasHora; elV.className='cd-timer green'; }
+    // Show destino countdown
+    document.getElementById('cd-destino').classList.add('show');
   }
 
-  // DESTINO countdown
-  const destEspMin = viaje.esperadaMin;
-  const restDestS = (destEspMin - ahoraMin) * 60;
-  const elDest = document.getElementById('cd-destino-val');
-  const fillDest = document.getElementById('cd-destino-fill');
-
-  if (restDestS > 0) {
-    const m = Math.floor(restDestS / 60), s = restDestS % 60;
-    elDest.textContent = String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
-    const pct = Math.min(100, (restDestS / (tiempoEsp(viaje.origen,viaje.destino)*60)) * 100);
-    fillDest.style.width = pct + '%';
-    elDest.className = 'cd-timer ' + (pct > 50 ? 'green' : pct > 20 ? 'yellow' : 'red');
-    fillDest.style.background = pct > 50 ? 'var(--corire)' : pct > 20 ? 'var(--yellow)' : 'var(--red)';
-  } else {
-    elDest.textContent = '+' + Math.abs(Math.floor(restDestS/60)) + ' min TARDE';
-    elDest.className = 'cd-timer red';
-    fillDest.style.width = '100%';
-    fillDest.style.background = 'var(--red)';
+  // ── DESTINO countdown (solo si pasó Mamás) ──
+  if (v.mamasHora) {
+    const destEspMin = v.esperadaMin;
+    const restS = (destEspMin - ahoraMin) * 60 - ahoraS % 60;
+    const totalS = tiempoEsp(v.origen, v.destino) * 60;
+    const elV = document.getElementById('cd-destino-val');
+    const elF = document.getElementById('cd-destino-fill');
+    if (elV) {
+      if (restS > 0) {
+        const mm = Math.floor(restS/60), ss = restS%60;
+        elV.textContent = String(mm).padStart(2,'0') + ':' + String(ss).padStart(2,'0');
+        const pct = Math.min(100, (restS/totalS)*100);
+        const col = pct>50?'green':pct>20?'yellow':'red';
+        elV.className = 'cd-timer '+col;
+        if(elF){ elF.style.width=pct+'%'; elF.style.background=pct>50?'var(--corire)':pct>20?'var(--yellow)':'var(--red)'; }
+      } else {
+        const late = Math.abs(Math.floor(restS/60));
+        elV.textContent = '+'+late+' min TARDE';
+        elV.className = 'cd-timer red';
+        if(elF){ elF.style.width='100%'; elF.style.background='var(--red)'; }
+      }
+    }
+    // Auto-llegada check
+    if (gpsPos && v.destino && enZona(v.destino) && !window._autoLlegadaLock) {
+      iniciarAutoLlegada(v);
+    }
   }
 }
 
-// AUTO-MARK MAMÁS
-window._autoMamasLock = false;
-function autoMarcarMamas(viaje) {
-  if (window._autoMamasLock) return;
+// ── AUTO MAMÁS con 3s cancelar + sonido ──
+function iniciarAutoMamas(viaje) {
+  if (window._autoMamasLock || _autoMamasTimer) return;
   window._autoMamasLock = true;
+  window._cancelMamas = false;
+  beepEntrada();
+  let cnt = 3;
+  const box = document.getElementById('cancel-mamas-box');
+  const countEl = document.getElementById('cancel-mamas-count');
+  if(box) box.style.display='block';
+  if(countEl) countEl.textContent = cnt;
+
+  _autoMamasTimer = setInterval(() => {
+    if (window._cancelMamas) {
+      clearInterval(_autoMamasTimer); _autoMamasTimer=null;
+      window._autoMamasLock=false;
+      if(box) box.style.display='none';
+      return;
+    }
+    cnt--;
+    if(countEl) countEl.textContent=cnt;
+    beep(660,100,0.3);
+    if (cnt <= 0) {
+      clearInterval(_autoMamasTimer); _autoMamasTimer=null;
+      if(box) box.style.display='none';
+      if (!window._cancelMamas) ejecutarAutoMamas(viaje);
+    }
+  }, 1000);
+}
+
+function cancelarAutoMamas() {
+  window._cancelMamas=true; window._autoMamasLock=false;
+  if(_autoMamasTimer){clearInterval(_autoMamasTimer);_autoMamasTimer=null;}
+  document.getElementById('cancel-mamas-box').style.display='none';
+  beep(440,300,0.3);
+}
+
+function ejecutarAutoMamas(viaje) {
   const hora = ahoraTxt();
   const u = SESSION.unidad;
-  let gpsSnap = gpsPos ? {lat:gpsPos.lat,lon:gpsPos.lon,acc:Math.round(gpsPos.acc)} : null;
+  const gpsSnap = gpsPos?{lat:gpsPos.lat,lon:gpsPos.lon,acc:Math.round(gpsPos.acc)}:null;
   fbUpdate('viajesActivos/'+u, {mamasHora:hora, gpsMamas:gpsSnap, gpsOkMamas:true});
-
-  // Flash visual
-  document.getElementById('card-mamas').classList.add('auto-flash');
-  showAlert('mamas-alert', '🤖 AUTO: Mamás registrado automáticamente a las ' + hora, 'ok');
-
+  beepAutoMarcado();
+  showAlert('mamas-alert','🤖 AUTO: Mamás registrado a las '+hora,'ok');
   document.getElementById('card-llegada').style.opacity='1';
   document.getElementById('card-llegada').style.pointerEvents='auto';
   setStep(3);
-  setTimeout(() => document.getElementById('card-mamas').classList.remove('auto-flash'), 2000);
 }
 
-// AUTO-MARK LLEGADA: cuando GPS entra en zona destino
-window._autoLlegadaLock = false;
-function checkAutoLlegada(viaje) {
-  if (window._autoLlegadaLock) return;
-  if (!viaje || !viaje.mamasHora) return;
-  if (!viaje.destino) return;
-  if (!gpsPos) return;
-  if (!enZona(viaje.destino)) return;
-  // Solo auto si el tiempo esperado ya casi llegó (dentro de ±5 min)
+// ── AUTO LLEGADA con 3s cancelar + sonido ──
+function iniciarAutoLlegada(viaje) {
+  if (window._autoLlegadaLock || _autoLlegadaTimer) return;
   const ahoraMin = horaAMin(ahoraTxt());
-  if (ahoraMin < viaje.esperadaMin - 5) return; // muy temprano, no auto
-
+  if (ahoraMin < viaje.esperadaMin - 5) return; // demasiado temprano
   window._autoLlegadaLock = true;
+  window._cancelLlegada = false;
+  beepEntrada();
+  let cnt = 3;
+  const box = document.getElementById('cancel-llegada-box');
+  const countEl = document.getElementById('cancel-llegada-count');
+  if(box) box.style.display='block';
+  if(countEl) countEl.textContent=cnt;
+
+  _autoLlegadaTimer = setInterval(()=>{
+    if (window._cancelLlegada) {
+      clearInterval(_autoLlegadaTimer); _autoLlegadaTimer=null;
+      window._autoLlegadaLock=false;
+      if(box) box.style.display='none';
+      return;
+    }
+    cnt--;
+    if(countEl) countEl.textContent=cnt;
+    beep(660,100,0.3);
+    if (cnt<=0) {
+      clearInterval(_autoLlegadaTimer); _autoLlegadaTimer=null;
+      if(box) box.style.display='none';
+      if(!window._cancelLlegada) ejecutarAutoLlegada(viaje);
+    }
+  },1000);
+}
+
+function cancelarAutoLlegada() {
+  window._cancelLlegada=true; window._autoLlegadaLock=false;
+  if(_autoLlegadaTimer){clearInterval(_autoLlegadaTimer);_autoLlegadaTimer=null;}
+  document.getElementById('cancel-llegada-box').style.display='none';
+  beep(440,300,0.3);
+}
+
+function ejecutarAutoLlegada(viaje) {
   const hora = ahoraTxt();
   const u = SESSION.unidad;
   const llegadaMin = horaAMin(hora);
   const tardMin = Math.max(0, llegadaMin - viaje.esperadaMin);
   const acumNuevo = (DATA.tardanzaAcum[u]||0) + tardMin;
-
+  const gpsSnap = gpsPos?{lat:gpsPos.lat,lon:gpsPos.lon,acc:Math.round(gpsPos.acc)}:null;
   const viajeComp = {...viaje, destinoFinal:viaje.destino, llegada:hora, llegadaMin,
-    tardanza:tardMin, gpsLlegada:{lat:gpsPos.lat,lon:gpsPos.lon,acc:Math.round(gpsPos.acc)},
-    gpsOkLlegada:true, gpsAlert:false, completado:Date.now()};
-
+    tardanza:tardMin, gpsLlegada:gpsSnap, gpsOkLlegada:true, gpsAlert:false, completado:Date.now()};
   fbRemove('viajesActivos/'+u);
   fbPush('historialDia', viajeComp);
   fbSet('tardanzaAcum/'+u, acumNuevo);
-
-  document.getElementById('card-llegada').classList.add('auto-flash');
+  beepAutoMarcado();
   showAlert('llegada-alert',
-    tardMin > 0
-      ? '🤖 AUTO: Llegada registrada con ' + tardMin + ' min tardanza · S/' + tardMin
-      : '🤖 AUTO: Llegada a tiempo en ' + viaje.destino + ' · ' + hora, 'ok');
-
+    tardMin>0?'🤖 AUTO: Llegada +'+tardMin+'min tarde · S/'+tardMin
+            :'🤖 AUTO: Llegada a tiempo en '+viaje.destino+' · '+hora,'ok');
   ocultarCountdowns();
   setStep(1);
-  window._autoMamasLock = false;
-  window._autoLlegadaLock = false;
+  window._autoMamasLock=false; window._autoLlegadaLock=false;
   document.getElementById('card-mamas').style.opacity='0.4';
   document.getElementById('card-mamas').style.pointerEvents='none';
   document.getElementById('card-llegada').style.opacity='0.4';
@@ -1564,13 +1660,26 @@ function checkAutoLlegada(viaje) {
   document.getElementById('s-origen').value='';
   document.getElementById('l-destino').value='';
   const ddR=document.getElementById('destino-display');
-  if(ddR){ ddR.textContent='— Automático según origen —'; ddR.style.color=''; ddR.style.borderColor=''; }
+  if(ddR){ddR.textContent='— Automático según origen —';ddR.style.color='';ddR.style.borderColor='';}
   renderHistorialChofer();
+}
+
+// Resetear locks al inicio de viaje
+function resetAutoLocks(){
+  window._autoMamasLock=false; window._autoLlegadaLock=false;
+  window._cancelMamas=false; window._cancelLlegada=false;
+  if(_autoMamasTimer){clearInterval(_autoMamasTimer);_autoMamasTimer=null;}
+  if(_autoLlegadaTimer){clearInterval(_autoLlegadaTimer);_autoLlegadaTimer=null;}
+  const bm=document.getElementById('cancel-mamas-box');
+  const bl=document.getElementById('cancel-llegada-box');
+  if(bm)bm.style.display='none';
+  if(bl)bl.style.display='none';
 }
 
 // ═══════════════════════════════════════════════════════
 //  LIVE MAP SVG
 // ═══════════════════════════════════════════════════════
+
 function renderLiveMap() {
   const svgG = document.getElementById('svg-units');
   if (!svgG) return;
