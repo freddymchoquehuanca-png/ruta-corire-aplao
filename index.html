@@ -456,12 +456,15 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <div class="card card-aplao" id="card-llegada" style="opacity:.4;pointer-events:none">
       <div class="card-title">🏁 PASO 3 — LLEGADA FINAL</div>
       <div class="frow">
-        <div class="fg"><label>Destino</label>
-          <select id="l-destino" onchange="actualizarProximidad()">
+        <div class="fg"><label>Destino (automático)</label>
+          <select id="l-destino" onchange="actualizarProximidad()" style="display:none">
             <option value="">— Selecciona —</option>
             <option value="CORIRE">CORIRE</option>
             <option value="APLAO">APLAO</option>
           </select>
+          <div id="destino-display" style="background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--fm);font-size:14px;padding:10px 12px;font-weight:700;letter-spacing:1px">
+            — Automático según origen —
+          </div>
         </div>
         <!-- hora capturada automáticamente al tocar botón -->
         <input type="hidden" id="l-hora">
@@ -532,19 +535,25 @@ tr:hover td{background:rgba(255,255,255,.02)}
     </div>
     <div class="card card-dark">
       <div class="card-title">📍 PUNTOS GPS</div>
-      <div class="frow3" style="margin-bottom:10px">
-        <div class="fg"><label>Radio geofence (m)</label><input type="number" id="geo-radio" value="300" min="50" onchange="guardarPuntos()"></div>
-      </div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
-        <div><div style="font-size:10px;font-weight:700;color:var(--corire);margin-bottom:6px;letter-spacing:1px">CORIRE</div>
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--corire);margin-bottom:8px;letter-spacing:1px;padding:5px 8px;background:var(--corire-dim);border-radius:6px;text-align:center">🔵 CORIRE</div>
           <div class="fg"><label>Lat</label><input type="text" id="lat-corire" value="-16.2163867" onchange="guardarPuntos()"></div>
-          <div class="fg"><label>Lon</label><input type="text" id="lon-corire" value="-72.4692981" onchange="guardarPuntos()"></div></div>
-        <div><div style="font-size:10px;font-weight:700;color:var(--mamas);margin-bottom:6px;letter-spacing:1px">MAMÁS</div>
+          <div class="fg"><label>Lon</label><input type="text" id="lon-corire" value="-72.4692981" onchange="guardarPuntos()"></div>
+          <div class="fg"><label>Radio (m)</label><input type="number" id="radio-corire" value="300" min="50" max="2000" onchange="guardarPuntos()"></div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--mamas);margin-bottom:8px;letter-spacing:1px;padding:5px 8px;background:var(--mamas-dim);border-radius:6px;text-align:center">🟢 MAMÁS</div>
           <div class="fg"><label>Lat</label><input type="text" id="lat-mamas" value="-16.1515679" onchange="guardarPuntos()"></div>
-          <div class="fg"><label>Lon</label><input type="text" id="lon-mamas" value="-72.4918005" onchange="guardarPuntos()"></div></div>
-        <div><div style="font-size:10px;font-weight:700;color:var(--aplao);margin-bottom:6px;letter-spacing:1px">APLAO</div>
+          <div class="fg"><label>Lon</label><input type="text" id="lon-mamas" value="-72.4918005" onchange="guardarPuntos()"></div>
+          <div class="fg"><label>Radio (m)</label><input type="number" id="radio-mamas" value="200" min="50" max="2000" onchange="guardarPuntos()"></div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--aplao);margin-bottom:8px;letter-spacing:1px;padding:5px 8px;background:var(--aplao-dim);border-radius:6px;text-align:center">🟡 APLAO</div>
           <div class="fg"><label>Lat</label><input type="text" id="lat-aplao" value="-16.0897344" onchange="guardarPuntos()"></div>
-          <div class="fg"><label>Lon</label><input type="text" id="lon-aplao" value="-72.4919021" onchange="guardarPuntos()"></div></div>
+          <div class="fg"><label>Lon</label><input type="text" id="lon-aplao" value="-72.4919021" onchange="guardarPuntos()"></div>
+          <div class="fg"><label>Radio (m)</label><input type="number" id="radio-aplao" value="300" min="50" max="2000" onchange="guardarPuntos()"></div>
+        </div>
       </div>
       <div style="font-size:10px;color:var(--muted);margin-top:4px">💡 Google Maps → clic derecho → copiar coordenadas</div>
     </div>
@@ -618,7 +627,7 @@ let mesActual = new Date();
 let DATA = {
   config: {
     tiempos:{ cm:18, ca:31, am:19, ac:31, mc:13, ma:12 },
-    puntos:{ CORIRE:{lat:-16.2163867,lon:-72.4692981}, MAMAS:{lat:-16.1515679,lon:-72.4918005}, APLAO:{lat:-16.0897344,lon:-72.4919021} },
+    puntos:{ CORIRE:{lat:-16.2163867,lon:-72.4692981,radio:300}, MAMAS:{lat:-16.1515679,lon:-72.4918005,radio:200}, APLAO:{lat:-16.0897344,lon:-72.4919021,radio:300} },
     geoRadio:300
   },
   viajesActivos:{},
@@ -821,7 +830,15 @@ function distPunto(nom){
   const p=DATA.config.puntos[nom];
   return haversine(gpsPos.lat,gpsPos.lon,p.lat,p.lon);
 }
-function enZona(nom){ return distPunto(nom)<=DATA.config.geoRadio; }
+function enZona(nom){
+  const p=DATA.config.puntos[nom];
+  const radio=(p&&p.radio)?p.radio:(DATA.config.geoRadio||300);
+  return distPunto(nom)<=radio;
+}
+function radioDelPunto(nom){
+  const p=DATA.config.puntos[nom];
+  return (p&&p.radio)?p.radio:(DATA.config.geoRadio||300);
+}
 
 function iniciarGPS(){
   if(!navigator.geolocation){ setBanner('err','GPS no disponible'); return; }
@@ -848,32 +865,34 @@ function setBanner(type,msg){
   b.innerHTML=`<div class="gps-dot${type==='loading'?' spin':''}"></div><span>${msg}</span>`;
 }
 function actualizarProximidad(){
-  const r=DATA.config.geoRadio;
   const origen=document.getElementById('s-origen').value;
   if(origen&&gpsPos){
+    const r=radioDelPunto(origen);
     const d=Math.round(distPunto(origen));
     const pct=Math.max(0,Math.min(100,(1-d/r)*100));
     document.getElementById('prox-salida-wrap').style.display='block';
-    document.getElementById('prox-dist-salida').textContent=d+'m';
+    document.getElementById('prox-dist-salida').textContent=d+'m (zona: '+r+'m)';
     document.getElementById('prox-fill-salida').style.cssText=`width:${pct}%;background:${d<=r?'var(--mamas)':'var(--red)'}`;
     document.getElementById('dist-salida-txt').textContent=d+'m';
     document.getElementById('geo-lock-salida').classList.toggle('show',d>r);
   }
   if(gpsPos){
+    const r=radioDelPunto('MAMAS');
     const d=Math.round(distPunto('MAMAS'));
     const pct=Math.max(0,Math.min(100,(1-d/r)*100));
     document.getElementById('prox-mamas-wrap').style.display='block';
-    document.getElementById('prox-dist-mamas').textContent=d+'m';
+    document.getElementById('prox-dist-mamas').textContent=d+'m (zona: '+r+'m)';
     document.getElementById('prox-fill-mamas').style.cssText=`width:${pct}%;background:${d<=r?'var(--mamas)':'var(--red)'}`;
     document.getElementById('dist-mamas-txt').textContent=d+'m';
     document.getElementById('geo-lock-mamas').classList.toggle('show',d>r);
   }
   const destino=document.getElementById('l-destino').value;
   if(destino&&gpsPos){
+    const r=radioDelPunto(destino);
     const d=Math.round(distPunto(destino));
     const pct=Math.max(0,Math.min(100,(1-d/r)*100));
     document.getElementById('prox-llegada-wrap').style.display='block';
-    document.getElementById('prox-dist-llegada').textContent=d+'m';
+    document.getElementById('prox-dist-llegada').textContent=d+'m (zona: '+r+'m)';
     document.getElementById('prox-fill-llegada').style.cssText=`width:${pct}%;background:${d<=r?'var(--mamas)':'var(--red)'}`;
     document.getElementById('dist-llegada-txt').textContent=d+'m';
     document.getElementById('geo-lock-llegada').classList.toggle('show',d>r);
@@ -913,8 +932,17 @@ function registrarSalida(){
   if(!origen){ showAlert('salida-alert','Selecciona punto de salida','err'); return; }
   const u=SESSION.unidad;
   let gpsOk=true, dist=null, gpsSnap=null;
-  if(gpsPos){ dist=Math.round(distPunto(origen)); gpsOk=dist<=DATA.config.geoRadio; gpsSnap={lat:gpsPos.lat,lon:gpsPos.lon,acc:Math.round(gpsPos.acc)}; }
+  if(gpsPos){ dist=Math.round(distPunto(origen)); gpsOk=dist<=radioDelPunto(origen); gpsSnap={lat:gpsPos.lat,lon:gpsPos.lon,acc:Math.round(gpsPos.acc)}; }
   const destino=origen==='CORIRE'?'APLAO':'CORIRE';
+  // Auto-set destino field
+  const ldest=document.getElementById('l-destino');
+  ldest.value=destino;
+  const dd=document.getElementById('destino-display');
+  if(dd){
+    dd.textContent=destino;
+    dd.style.color=destino==='APLAO'?'var(--aplao)':'var(--corire)';
+    dd.style.borderColor=destino==='APLAO'?'var(--aplao)':'var(--corire)';
+  }
   const espMin=tiempoEsp(origen,destino);
   const salidaMin=horaAMin(hora);
   const esperadaMin=salidaMin+espMin;
@@ -937,7 +965,7 @@ function registrarMamas(){
   const u=SESSION.unidad;
   const hora=ahoraTxt(); // hora automática del servidor al tocar botón
   let gpsOk=true,dist=null,gpsSnap=null;
-  if(gpsPos){ dist=Math.round(distPunto('MAMAS')); gpsOk=dist<=DATA.config.geoRadio; gpsSnap={lat:gpsPos.lat,lon:gpsPos.lon,acc:Math.round(gpsPos.acc)}; }
+  if(gpsPos){ dist=Math.round(distPunto('MAMAS')); gpsOk=dist<=radioDelPunto('MAMAS'); gpsSnap={lat:gpsPos.lat,lon:gpsPos.lon,acc:Math.round(gpsPos.acc)}; }
   fbUpdate('viajesActivos/'+u, {mamasHora:hora,gpsMamas:gpsSnap,gpsOkMamas:gpsOk});
   if(!gpsOk&&gpsPos) fbPush('gpsAlertas',{tipo:'MAMÁS',unidad:u,dist,hora,punto:'MAMAS',fecha:hoy(),ts:Date.now()});
   showAlert('mamas-alert',gpsOk?`📍 Mamás registrado · Hora: ${hora}`:`⚠️ GPS: ${dist}m de Mamás · Hora grabada: ${hora}`,gpsOk?'ok':'warn');
@@ -950,11 +978,11 @@ function registrarLlegada(){
   const u=SESSION.unidad;
   const destino=document.getElementById('l-destino').value;
   const hora=ahoraTxt(); // hora automática del servidor al tocar botón
-  if(!destino){ showAlert('llegada-alert','Selecciona el destino','err'); return; }
+  // destino es automático — siempre definido al registrar salida
   const v=DATA.viajesActivos[u];
   if(!v){ showAlert('llegada-alert','Sin viaje activo. Registra salida primero.','err'); return; }
   let gpsOk=true,dist=null,gpsSnap=null;
-  if(gpsPos){ dist=Math.round(distPunto(destino)); gpsOk=dist<=DATA.config.geoRadio; gpsSnap={lat:gpsPos.lat,lon:gpsPos.lon,acc:Math.round(gpsPos.acc)}; }
+  if(gpsPos){ dist=Math.round(distPunto(destino)); gpsOk=dist<=radioDelPunto(destino); gpsSnap={lat:gpsPos.lat,lon:gpsPos.lon,acc:Math.round(gpsPos.acc)}; }
   const llegadaMin=horaAMin(hora);
   const tardMin=Math.max(0,llegadaMin-v.esperadaMin);
   const acumPrev=(DATA.tardanzaAcum[u]||0);
@@ -979,6 +1007,8 @@ function registrarLlegada(){
   document.getElementById('card-llegada').style.pointerEvents='none';
   document.getElementById('s-origen').value='';
   document.getElementById('l-destino').value='';
+  const ddR=document.getElementById('destino-display');
+  if(ddR){ ddR.textContent='— Automático según origen —'; ddR.style.color=''; ddR.style.borderColor=''; }
 }
 
 function setStep(n){
@@ -1137,11 +1167,11 @@ function actualizarFormsConfig(){
   if(!c)return;
   ['cm','ca','am','ac','mc','ma'].forEach(k=>{ const el=document.getElementById('t-'+k); if(el)el.value=c.tiempos[k]; });
   ['CORIRE','MAMAS','APLAO'].forEach(p=>{ const pn=p.toLowerCase();
-    const la=document.getElementById('lat-'+pn), lo=document.getElementById('lon-'+pn);
+    const la=document.getElementById('lat-'+pn), lo=document.getElementById('lon-'+pn), ra=document.getElementById('radio-'+pn);
     if(la&&c.puntos[p])la.value=c.puntos[p].lat;
     if(lo&&c.puntos[p])lo.value=c.puntos[p].lon;
+    if(ra&&c.puntos[p]&&c.puntos[p].radio)ra.value=c.puntos[p].radio;
   });
-  const gr=document.getElementById('geo-radio'); if(gr)gr.value=c.geoRadio;
 }
 function guardarTiempos(){
   const t={cm:+document.getElementById('t-cm').value,ca:+document.getElementById('t-ca').value,
@@ -1152,13 +1182,14 @@ function guardarTiempos(){
 }
 function guardarPuntos(){
   const puntos={
-    CORIRE:{lat:+document.getElementById('lat-corire').value,lon:+document.getElementById('lon-corire').value},
-    MAMAS:{lat:+document.getElementById('lat-mamas').value,lon:+document.getElementById('lon-mamas').value},
-    APLAO:{lat:+document.getElementById('lat-aplao').value,lon:+document.getElementById('lon-aplao').value}
+    CORIRE:{lat:+document.getElementById('lat-corire').value, lon:+document.getElementById('lon-corire').value, radio:+document.getElementById('radio-corire').value},
+    MAMAS: {lat:+document.getElementById('lat-mamas').value,  lon:+document.getElementById('lon-mamas').value,  radio:+document.getElementById('radio-mamas').value},
+    APLAO: {lat:+document.getElementById('lat-aplao').value,  lon:+document.getElementById('lon-aplao').value,  radio:+document.getElementById('radio-aplao').value}
   };
-  const r=+document.getElementById('geo-radio').value;
-  fbUpdate('config',{puntos,geoRadio:r});
-  DATA.config.puntos=puntos; DATA.config.geoRadio=r;
+  fbUpdate('config',{puntos});
+  DATA.config.puntos=puntos;
+  // Compatibilidad: geoRadio global como máximo
+  DATA.config.geoRadio=Math.max(puntos.CORIRE.radio, puntos.MAMAS.radio, puntos.APLAO.radio);
 }
 
 // ═══════════════════════════════════════════════════════
