@@ -108,7 +108,8 @@ select:focus,input:focus{border-color:var(--corire)}
 .topbar-logo{font-family:var(--fd);font-size:20px;font-weight:800;letter-spacing:2px}
 .topbar-logo .c{color:var(--corire)} .topbar-logo .sep2{color:var(--muted)} .topbar-logo .a{color:var(--aplao)}
 .user-pill{background:var(--s3);border:1px solid var(--border2);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:600;letter-spacing:.5px}
-.clock{font-family:var(--fm);font-size:22px;font-weight:600;color:var(--mamas);letter-spacing:2px;line-height:1}
+.clock{font-family:var(--fm);font-size:32px;font-weight:700;color:var(--mamas);letter-spacing:2px;line-height:1}
+.clock-ampm{font-size:11px;font-weight:400;color:var(--muted2);letter-spacing:1px;vertical-align:middle;margin-left:3px}
 .logout-btn{background:none;border:1px solid var(--border2);color:var(--muted);border-radius:6px;padding:4px 9px;cursor:pointer;font-size:11px;transition:.2s}
 .logout-btn:hover{border-color:var(--red);color:var(--red)}
 
@@ -1166,10 +1167,12 @@ function minAHora(m){ if(m==null)return'--:--'; return String(Math.floor(m/60)%2
 function ahoraTxt(){ const d=new Date(); return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
 function tickClock(){
   const d=new Date();
-  let h=d.getHours(), m=d.getMinutes(), s=d.getSeconds();
+  let h=d.getHours(); const m=d.getMinutes(), s=d.getSeconds();
   const ampm=h>=12?'PM':'AM';
   h=h%12||12;
-  document.getElementById('clock').textContent=String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')+' '+ampm;
+  document.getElementById('clock').innerHTML=
+    String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')+
+    '<span class="clock-ampm">'+ampm+'</span>';
 }
 function tiempoEsp(o,d){ const t=DATA.config.tiempos; return ({CORIRE_APLAO:t.ca,APLAO_CORIRE:t.ac,CORIRE_MAMAS:t.cm,APLAO_MAMAS:t.am,MAMAS_CORIRE:t.mc,MAMAS_APLAO:t.ma})[o+'_'+d]||31; }
 function mesKey(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
