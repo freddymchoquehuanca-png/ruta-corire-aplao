@@ -282,6 +282,21 @@ tr:hover td{background:rgba(255,255,255,.02)}
 /* ── EXPORT BTN ── */
 .export-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
 
+/* ── MODAL ANULAR ── */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:500;
+  display:none;align-items:center;justify-content:center;padding:20px;
+}
+.modal-overlay.show{display:flex}
+.modal-box{
+  background:var(--s2);border:1px solid var(--red);border-radius:14px;
+  padding:24px;width:100%;max-width:380px;
+}
+.modal-title{font-family:var(--fd);font-size:20px;font-weight:800;color:var(--red);
+  letter-spacing:1px;margin-bottom:6px}
+.modal-sub{font-size:12px;color:var(--muted2);margin-bottom:16px}
+.modal-btns{display:flex;gap:10px;margin-top:16px}
+
 /* ── SCROLLBAR ── */
 ::-webkit-scrollbar{width:4px;height:4px}
 ::-webkit-scrollbar-track{background:var(--bg)}
@@ -603,7 +618,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div class="card-title">VIAJES EN CURSO</div>
       <div class="tbl-wrap">
         <table>
-          <thead><tr><th>U#</th><th>Origen</th><th>Salida</th><th>Destino</th><th>Esperada</th><th>Tardanza</th><th>GPS</th><th>Acum S/</th></tr></thead>
+          <thead><tr><th>U#</th><th>Origen</th><th>Salida</th><th>Destino</th><th>Esperada</th><th>Tardanza</th><th>GPS</th><th>Acum S/</th><th>⚙️</th></tr></thead>
           <tbody id="monitor-tbody"></tbody>
         </table>
       </div>
@@ -676,7 +691,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
       </div>
       <div class="tbl-wrap">
         <table>
-          <thead><tr><th>U#</th><th>Origen</th><th>Salida</th><th>Mamás</th><th>Destino</th><th>Llegada</th><th>Tardanza</th><th>GPS</th><th>S/</th></tr></thead>
+          <thead><tr><th>U#</th><th>Origen</th><th>Salida</th><th>Mamás</th><th>Destino</th><th>Llegada</th><th>Tardanza</th><th>GPS</th><th>S/</th><th>⚙️</th></tr></thead>
           <tbody id="historial-sup-tbody"></tbody>
         </table>
       </div>
@@ -702,6 +717,45 @@ tr:hover td{background:rgba(255,255,255,.02)}
       </div>
     </div>
   </div>
+
+<!-- ═══ MODAL ANULAR VIAJE ═══ -->
+<div class="modal-overlay" id="modal-anular">
+  <div class="modal-box">
+    <div class="modal-title">⚠️ ANULAR VIAJE</div>
+    <div class="modal-sub" id="modal-anular-sub">Unidad — · Viaje —</div>
+    <div class="fg">
+      <label>Motivo de anulación</label>
+      <select id="anular-motivo-sel" onchange="toggleMotivoCustom()">
+        <option value="">— Selecciona motivo —</option>
+        <option value="Error de registro">Error de registro</option>
+        <option value="Viaje no realizado">Viaje no realizado</option>
+        <option value="Falla mecánica">Falla mecánica</option>
+        <option value="Accidente">Accidente</option>
+        <option value="Otro">Otro (especificar)</option>
+      </select>
+    </div>
+    <div class="fg" id="motivo-custom-row" style="display:none">
+      <label>Especificar motivo</label>
+      <input type="text" id="anular-motivo-custom" placeholder="Escribe el motivo...">
+    </div>
+    <div class="fg">
+      <label>¿Qué deseas hacer?</label>
+      <select id="anular-accion">
+        <option value="anular_viaje_activo">Cancelar viaje activo (en ruta)</option>
+        <option value="anular_historial">Anular viaje del historial (quitar tardanza)</option>
+      </select>
+    </div>
+    <div class="fg" id="anular-historial-row" style="display:none">
+      <label>Selecciona viaje del historial</label>
+      <select id="anular-viaje-sel"></select>
+    </div>
+    <div id="modal-alert" class="alert"></div>
+    <div class="modal-btns">
+      <button class="btn btn-ghost" onclick="cerrarModalAnular()" style="flex:1">CANCELAR</button>
+      <button class="btn btn-danger" onclick="ejecutarAnulacion()" style="flex:1">🗑️ ANULAR</button>
+    </div>
+  </div>
+</div>
 
 </div><!-- /app -->
 
@@ -1127,7 +1181,7 @@ function renderMonitor(){
   let enRuta=0,tarde=0,gpsAl=0,multasHoy=0;
   document.getElementById('monitor-ts').textContent=ahoraTxt();
 
-  const hist=Object.values(DATA.historialDia||{});
+  const hist=Object.entries(DATA.historialDia||{});
   const mult=Object.values(DATA.multasExternas||{}).filter(m=>m.fecha===hoy());
   hist.forEach(h=>multasHoy+=h.tardanza||0);
   mult.forEach(m=>multasHoy+=m.monto||0);
@@ -1159,6 +1213,7 @@ function renderMonitor(){
         <td class="${tardAct>0?'money':''}">${tardAct>0?`+${tardAct}m`:'—'}</td>
         <td><span class="gps-ind ${v.gpsOk!==false?'gps-valid':'gps-invalid'}"><div class="dot"></div>${v.gpsOk!==false?'OK':'ALERTA'}</span></td>
         <td class="${acum>0?'money':''}">${acum>0?`S/${acum}`:'—'}</td>
+        <td>${SESSION.role==='supervisor'?`<button class="btn btn-danger btn-sm" onclick="abrirModalAnular('${u}','activo')" style="padding:3px 8px;font-size:10px">🗑️</button>`:''}</td>
       </tr>`;
     } else {
       grid+=`<div class="unit-card">
@@ -1202,7 +1257,7 @@ function renderHistorialChofer(){
 function renderHistorialSup(){
   const hist=Object.values(DATA.historialDia||{});
   let rows=hist.length===0?'<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:12px">Sin viajes hoy</td></tr>':'';
-  hist.slice().reverse().forEach(h=>{
+  hist.slice().reverse().forEach(([key,h])=>{
     const gOk=!h.gpsAlert;
     rows+=`<tr>
       <td><strong class="mono">U${String(h.unidad).padStart(2,'0')}</strong></td>
@@ -1211,9 +1266,10 @@ function renderHistorialSup(){
       <td class="mono">${h.mamasHora||'—'}</td>
       <td><span class="badge badge-${h.destinoFinal==='CORIRE'?'c':'a'}">${h.destinoFinal}</span></td>
       <td class="mono">${h.llegada}</td>
-      <td class="${h.tardanza>0?'money':'ok-txt'}">${h.tardanza>0?`+${h.tardanza}m`:'OK'}</td>
+      <td class="${h.anulado?'':''}${h.tardanza>0&&!h.anulado?'money':'ok-txt'}">${h.anulado?'<span class="badge badge-warn">ANULADO</span>':(h.tardanza>0?`+${h.tardanza}m`:'OK')}</td>
       <td><span class="gps-ind ${gOk?'gps-valid':'gps-invalid'}"><div class="dot"></div>${gOk?'OK':'ALERTA'}</span></td>
-      <td class="${h.tardanza>0?'money':''}">${h.tardanza>0?`S/${h.tardanza}`:'—'}</td>
+      <td class="${h.tardanza>0&&!h.anulado?'money':''}">${h.anulado?`<span style="font-size:10px;color:var(--muted)">${h.motivoAnulacion||''}</span>`:(h.tardanza>0?`S/${h.tardanza}`:'—')}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="abrirModalAnular('${h.unidad}','historial','${key}')" style="padding:3px 8px;font-size:10px">🗑️</button></td>
     </tr>`;
   });
   document.getElementById('historial-sup-tbody').innerHTML=rows;
@@ -1422,6 +1478,110 @@ const FIREBASE_CFG_PRESET = {
 
 actualizarMesLabel();
 poblarExportSelect();
+
+// ═══════════════════════════════════════════════════════
+//  ANULAR VIAJE (SUPERVISOR)
+// ═══════════════════════════════════════════════════════
+let _anularCtx = null; // {unidad, tipo, key}
+
+function abrirModalAnular(unidad, tipo, key) {
+  _anularCtx = { unidad, tipo, key };
+  const u = 'U' + String(unidad).padStart(2,'0');
+
+  // Descripción en modal
+  let desc = '';
+  if (tipo === 'activo') {
+    const v = DATA.viajesActivos[unidad];
+    desc = v ? `${u} · ${v.origen} → ${v.destino} · Salida ${v.salida}` : u + ' · Viaje activo';
+  } else {
+    const h = DATA.historialDia[key];
+    desc = h ? `${u} · ${h.origen} → ${h.destinoFinal||h.destino} · Salida ${h.salida} · Tardanza ${h.tardanza||0}min` : u;
+  }
+  document.getElementById('modal-anular-sub').textContent = desc;
+  document.getElementById('anular-motivo-sel').value = '';
+  document.getElementById('anular-motivo-custom').value = '';
+  document.getElementById('motivo-custom-row').style.display = 'none';
+
+  // Acción según tipo
+  const acSel = document.getElementById('anular-accion');
+  acSel.value = tipo === 'activo' ? 'anular_viaje_activo' : 'anular_historial';
+  document.getElementById('anular-historial-row').style.display = 'none';
+
+  document.getElementById('modal-alert').className = 'alert';
+  document.getElementById('modal-anular').classList.add('show');
+}
+
+function cerrarModalAnular() {
+  document.getElementById('modal-anular').classList.remove('show');
+  _anularCtx = null;
+}
+
+function toggleMotivoCustom() {
+  const sel = document.getElementById('anular-motivo-sel').value;
+  document.getElementById('motivo-custom-row').style.display = sel === 'Otro' ? 'block' : 'none';
+}
+
+function ejecutarAnulacion() {
+  const motivoSel = document.getElementById('anular-motivo-sel').value;
+  const motivoCustom = document.getElementById('anular-motivo-custom').value.trim();
+  const motivo = motivoSel === 'Otro' ? motivoCustom : motivoSel;
+
+  if (!motivo) {
+    showAlert('modal-alert', 'Selecciona o escribe un motivo', 'err'); return;
+  }
+  if (!_anularCtx) return;
+
+  const { unidad, tipo, key } = _anularCtx;
+  const ts = new Date().toISOString();
+
+  if (tipo === 'activo') {
+    // Cancelar viaje activo: eliminar de viajesActivos, guardar en log anulados
+    const v = DATA.viajesActivos[unidad];
+    if (v) {
+      fbPush('viajesAnulados', {
+        ...v, motivo, anuladoPor:'SUPERVISOR', anuladoEn:ts,
+        tipo:'activo'
+      });
+      fbRemove('viajesActivos/' + unidad);
+      showAlert('modal-alert', `✅ Viaje activo de U${String(unidad).padStart(2,'0')} cancelado.`, 'ok');
+    }
+  } else {
+    // Anular viaje del historial: quitar tardanza acumulada
+    const h = DATA.historialDia[key];
+    if (h) {
+      const tardAnulada = h.tardanza || 0;
+      const acumActual = DATA.tardanzaAcum[unidad] || 0;
+      const nuevaAcum = Math.max(0, acumActual - tardAnulada);
+
+      // Marcar como anulado en historial (no eliminar, para tener registro)
+      fbUpdate('historialDia/' + key, {
+        anulado: true,
+        tardanza: 0,
+        motivoAnulacion: motivo,
+        anuladoPor: 'SUPERVISOR',
+        anuladoEn: ts,
+        tardanzaOriginal: tardAnulada
+      });
+      fbSet('tardanzaAcum/' + unidad, nuevaAcum);
+
+      showAlert('modal-alert',
+        `✅ Tardanza de ${tardAnulada}min removida de U${String(unidad).padStart(2,'0')}. Acumulado: S/${nuevaAcum}`,
+        'ok');
+    }
+  }
+
+  setTimeout(() => {
+    cerrarModalAnular();
+    renderHistorialSup();
+    renderMonitor();
+  }, 1800);
+}
+
+// Close modal on overlay click
+document.getElementById('modal-anular').addEventListener('click', function(e){
+  if (e.target === this) cerrarModalAnular();
+});
+
 function STATE_viaje_actual(){ return DATA.viajesActivos[SESSION.unidad]||null; }
 
 // ═══════════════════════════════════════════════════════
