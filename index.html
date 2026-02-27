@@ -543,7 +543,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <!-- COUNTDOWN MAMÁS inside paso 2 -->
       <div class="countdown-box" id="cd-mamas">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-          <div class="cd-label" style="margin-bottom:0">⏱️ TIEMPO EN RUTA → MAMÁS</div>
+          <div class="cd-label" style="margin-bottom:0">⏱️ TIEMPO PARA LLEGAR A MAMÁS</div>
         </div>
         <div class="cd-timer green" id="cd-mamas-val">--:--</div>
         <div class="cd-bar"><div class="cd-fill" id="cd-mamas-fill" style="width:100%;background:var(--mamas)"></div></div>
@@ -590,7 +590,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <!-- COUNTDOWN DESTINO inside paso 3 -->
       <div class="countdown-box" id="cd-destino">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-          <div class="cd-label" style="margin-bottom:0">⏱️ TIEMPO EN RUTA → DESTINO</div>
+          <div class="cd-label" style="margin-bottom:0">⏱️ TIEMPO PARA LLEGAR AL DESTINO</div>
         </div>
         <div class="cd-timer green" id="cd-destino-val">--:--</div>
         <div class="cd-bar"><div class="cd-fill" id="cd-destino-fill" style="width:100%;background:var(--corire)"></div></div>
@@ -1164,7 +1164,13 @@ function logout() {
 function horaAMin(h){ if(!h)return null; const[hh,mm]=h.split(':').map(Number); return hh*60+mm; }
 function minAHora(m){ if(m==null)return'--:--'; return String(Math.floor(m/60)%24).padStart(2,'0')+':'+String(m%60).padStart(2,'0'); }
 function ahoraTxt(){ const d=new Date(); return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
-function tickClock(){ const d=new Date(); document.getElementById('clock').textContent=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0'); }
+function tickClock(){
+  const d=new Date();
+  let h=d.getHours(), m=d.getMinutes(), s=d.getSeconds();
+  const ampm=h>=12?'PM':'AM';
+  h=h%12||12;
+  document.getElementById('clock').textContent=String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')+' '+ampm;
+}
 function tiempoEsp(o,d){ const t=DATA.config.tiempos; return ({CORIRE_APLAO:t.ca,APLAO_CORIRE:t.ac,CORIRE_MAMAS:t.cm,APLAO_MAMAS:t.am,MAMAS_CORIRE:t.mc,MAMAS_APLAO:t.ma})[o+'_'+d]||31; }
 function mesKey(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
 function hoy(){ return new Date().toISOString().slice(0,10); }
@@ -2048,83 +2054,72 @@ function ocultarCountdowns() {
 }
 
 function tickCountdown(viaje) {
-  // Recalcular viaje fresco desde DATA
   const v = DATA.viajesActivos[SESSION.unidad] || viaje;
   if (!v) return;
 
-  const ahoraMin = horaAMin(ahoraTxt());
-  const nowMs = Date.now();
+  // Usar Date.now() para segundos precisos
+  const ahora = new Date();
+  const ahoraMinReal = ahora.getHours()*60 + ahora.getMinutes();
+  const ahoraSegReal = ahora.getHours()*3600 + ahora.getMinutes()*60 + ahora.getSeconds();
 
-  // ── CONTADOR ASCENDENTE MAMÁS: tiempo transcurrido desde salida ──
+  // ── MAMÁS: DESCENDENTE (cuánto falta) ──
   if (!v.mamasHora) {
-    const totalS = tiempoEsp(v.origen, 'MAMAS') * 60;        // tiempo esperado en seg
-    const transcurridoS = (ahoraMin - v.salidaMin) * 60;      // segundos desde salida
+    const mamasEspMin = v.salidaMin + tiempoEsp(v.origen, 'MAMAS');
+    const mamasEspSeg = mamasEspMin * 60;
+    const ahoraSeg = ahoraSegReal;
+    const restS = mamasEspSeg - ahoraSeg;
+
     const elV = document.getElementById('cd-mamas-val');
     const elF = document.getElementById('cd-mamas-fill');
+    const totalS = tiempoEsp(v.origen, 'MAMAS') * 60;
 
     if (elV) {
-      // Mostrar tiempo transcurrido ascendente
-      const t = Math.max(0, transcurridoS);
-      const mm = Math.floor(t / 60), ss = t % 60;
-      const excedido = transcurridoS > totalS;
-      const excesoS = transcurridoS - totalS;
-
-      if (!excedido) {
-        // En tiempo → verde subiendo
-        elV.textContent = String(mm).padStart(2,'0') + ':' + String(ss).padStart(2,'0');
-        const pct = Math.min(100, (t / totalS) * 100);
-        const col = pct < 60 ? 'green' : pct < 85 ? 'yellow' : 'red';
-        elV.className = 'cd-timer ' + col;
-        if(elF){ elF.style.width = pct+'%'; elF.style.background = pct<60?'var(--mamas)':pct<85?'var(--yellow)':'var(--red)'; }
+      if (restS > 0) {
+        const mm = Math.floor(restS/60), ss = restS%60;
+        elV.textContent = String(mm).padStart(2,'0')+':'+String(ss).padStart(2,'0');
+        const pct = Math.min(100,(restS/totalS)*100);
+        elV.className = 'cd-timer '+(pct>50?'green':pct>20?'yellow':'red');
+        if(elF){elF.style.width=pct+'%';elF.style.background=pct>50?'var(--mamas)':pct>20?'var(--yellow)':'var(--red)';}
       } else {
-        // Excedido → muestra tiempo extra en rojo
-        const em = Math.floor(excesoS/60), es = excesoS%60;
-        elV.textContent = '+' + String(em).padStart(2,'0') + ':' + String(es).padStart(2,'0') + ' TARDE';
+        const lateM = Math.floor(Math.abs(restS)/60), lateS = Math.abs(restS)%60;
+        elV.textContent = '+'+String(lateM).padStart(2,'0')+':'+String(lateS).padStart(2,'0')+' TARDE';
         elV.className = 'cd-timer red';
-        if(elF){ elF.style.width='100%'; elF.style.background='var(--red)'; }
+        if(elF){elF.style.width='100%';elF.style.background='var(--red)';}
       }
     }
-    // Auto-mark check
-    if (gpsPos && enZona('MAMAS') && !window._autoMamasLock) {
-      iniciarAutoMamas(v);
-    }
+    if (gpsPos && enZona('MAMAS') && !window._autoMamasLock) iniciarAutoMamas(v);
   } else {
     const elV = document.getElementById('cd-mamas-val');
-    if(elV){ elV.textContent='✅ '+v.mamasHora; elV.className='cd-timer green'; }
+    if(elV){elV.textContent='✅ '+v.mamasHora;elV.className='cd-timer green';}
     document.getElementById('cd-destino').classList.add('show');
   }
 
-  // ── CONTADOR ASCENDENTE DESTINO: tiempo desde que salió de Mamás ──
+  // ── DESTINO: DESCENDENTE (cuánto falta desde que pasó Mamás) ──
   if (v.mamasHora) {
-    const mamasMin = horaAMin(v.mamasHora);
-    const totalS = tiempoEsp('MAMAS', v.destino === 'CORIRE' ? 'CORIRE' : 'APLAO') * 60;
-    const transcurridoS = (ahoraMin - mamasMin) * 60;
+    const destEspMin = v.esperadaMin;
+    const destEspSeg = destEspMin * 60;
+    const ahoraSeg = ahoraSegReal;
+    const restS = destEspSeg - ahoraSeg;
+    const totalS = tiempoEsp(v.origen, v.destino) * 60;
+
     const elV = document.getElementById('cd-destino-val');
     const elF = document.getElementById('cd-destino-fill');
 
     if (elV) {
-      const t = Math.max(0, transcurridoS);
-      const mm = Math.floor(t/60), ss = t%60;
-      const excedido = transcurridoS > totalS;
-      const excesoS = transcurridoS - totalS;
-
-      if (!excedido) {
-        elV.textContent = String(mm).padStart(2,'0') + ':' + String(ss).padStart(2,'0');
-        const pct = Math.min(100, (t/totalS)*100);
-        const col = pct<60?'green':pct<85?'yellow':'red';
-        elV.className = 'cd-timer '+col;
-        if(elF){ elF.style.width=pct+'%'; elF.style.background=pct<60?'var(--corire)':pct<85?'var(--yellow)':'var(--red)'; }
+      if (restS > 0) {
+        const mm = Math.floor(restS/60), ss = restS%60;
+        elV.textContent = String(mm).padStart(2,'0')+':'+String(ss).padStart(2,'0');
+        const pct = Math.min(100,(restS/totalS)*100);
+        elV.className = 'cd-timer '+(pct>50?'green':pct>20?'yellow':'red');
+        if(elF){elF.style.width=pct+'%';elF.style.background=pct>50?'var(--corire)':pct>20?'var(--yellow)':'var(--red)';}
       } else {
-        const em = Math.floor(excesoS/60), es = excesoS%60;
-        elV.textContent = '+'+String(em).padStart(2,'0')+':'+String(es).padStart(2,'0')+' TARDE';
+        const lateM = Math.floor(Math.abs(restS)/60), lateS = Math.abs(restS)%60;
+        elV.textContent = '+'+String(lateM).padStart(2,'0')+':'+String(lateS).padStart(2,'0')+' TARDE';
         elV.className = 'cd-timer red';
-        if(elF){ elF.style.width='100%'; elF.style.background='var(--red)'; }
+        if(elF){elF.style.width='100%';elF.style.background='var(--red)';}
       }
     }
-    // Auto-llegada check
-    if (gpsPos && v.destino && enZona(v.destino) && !window._autoLlegadaLock) {
-      iniciarAutoLlegada(v);
-    }
+    if (gpsPos && v.destino && enZona(v.destino) && !window._autoLlegadaLock) iniciarAutoLlegada(v);
   }
 }
 
