@@ -1374,16 +1374,24 @@ function registrarMamas(){
   showAlert('mamas-alert', msgMamas, tardMamas>0?'warn':'ok');
   document.getElementById('card-llegada').style.opacity='1';
   document.getElementById('card-llegada').style.pointerEvents='auto';
+  document.getElementById('card-llegada').style.display='block';
+  // Asegurar destino en select
+  const vAct = DATA.viajesActivos[SESSION.unidad];
+  if(vAct){ const ldEl=document.getElementById('l-destino'); if(ldEl)ldEl.value=vAct.destino; }
   setStep(3);
 }
 
 function registrarLlegada(){
   const u=SESSION.unidad;
-  const destino=document.getElementById('l-destino').value;
-  const hora=ahoraTxt(); // hora automática del servidor al tocar botón
-  // destino es automático — siempre definido al registrar salida
+  const hora=ahoraTxt();
   const v=DATA.viajesActivos[u];
   if(!v){ showAlert('llegada-alert','Sin viaje activo. Registra salida primero.','err'); return; }
+  // Destino: siempre desde Firebase (no depender del select que puede estar vacío)
+  const destino = v.destino || document.getElementById('l-destino').value;
+  if(!destino){ showAlert('llegada-alert','Error: destino no encontrado. Contacta al supervisor.','err'); return; }
+  // Asegurar que el select y display estén actualizados
+  const ldEl = document.getElementById('l-destino');
+  if(ldEl && !ldEl.value) ldEl.value = destino;
   let gpsOk=true,dist=null,gpsSnap=null;
   if(gpsPos){ dist=Math.round(distPunto(destino)); gpsOk=dist<=radioDelPunto(destino); gpsSnap={lat:gpsPos.lat,lon:gpsPos.lon,acc:Math.round(gpsPos.acc)}; }
   const llegadaMin=horaAMinCross(hora, v.salida);
@@ -2007,17 +2015,32 @@ function retomarViaje() {
     document.getElementById('incidente-section').style.display='block';
     setStep(2);
   } else {
-    // Estaba en Paso 3
+    // Estaba en Paso 3 — forzar todo visible y habilitado
     document.getElementById('card-mamas').style.opacity='1';
     document.getElementById('card-mamas').style.pointerEvents='auto';
     document.getElementById('card-llegada').style.opacity='1';
     document.getElementById('card-llegada').style.pointerEvents='auto';
+    document.getElementById('card-llegada').style.display='block';
     document.getElementById('incidente-section').style.display='block';
+    // Mostrar hora Mamás en el display
+    const mamasValEl = document.getElementById('cd-mamas-val');
+    if(mamasValEl){ mamasValEl.textContent='✅ '+v.mamasHora; mamasValEl.className='cd-timer green'; }
+    // Mostrar cd-destino
+    const cdDest = document.getElementById('cd-destino');
+    if(cdDest) cdDest.classList.add('show');
+    // Asegurar destino en el select
+    const ldEl2 = document.getElementById('l-destino');
+    if(ldEl2) ldEl2.value = v.destino;
     setStep(3);
   }
 
   resetAutoLocks();
   iniciarCountdowns(v);
+  // Scroll al paso activo
+  setTimeout(()=>{
+    const cardLlegada = document.getElementById('card-llegada');
+    if(cardLlegada && v.mamasHora) cardLlegada.scrollIntoView({behavior:'smooth', block:'center'});
+  }, 400);
   showAlert('salida-alert', `▶️ Viaje retomado · ${v.origen} → ${v.destino} · Salida ${v.salida}`, 'ok');
   updateRouteDiagram(v.origen);
 }
