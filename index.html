@@ -302,6 +302,17 @@ tr:hover td{background:rgba(255,255,255,.02)}
 .bar-fill{height:100%;border-radius:4px;transition:width .4s;display:flex;align-items:center;padding-left:6px}
 .bar-val{font-size:10px;font-weight:700;color:#000;font-family:var(--fm)}
 
+/* ── RETOMAR VIAJE BANNER ── */
+.retomar-banner{
+  background:linear-gradient(135deg,rgba(59,158,255,.2),rgba(59,158,255,.08));
+  border:2px solid var(--corire);border-radius:12px;
+  padding:16px;margin-bottom:12px;display:none;
+}
+.retomar-banner.show{display:block}
+.retomar-title{font-family:var(--fd);font-size:16px;font-weight:800;color:var(--corire);letter-spacing:1px;margin-bottom:6px}
+.retomar-info{font-size:12px;color:var(--muted2);margin-bottom:12px;line-height:1.6}
+.retomar-btns{display:flex;gap:8px}
+
 /* ── OFFLINE BANNER ── */
 .offline-banner{
   background:var(--yellow-dim);border:1px solid rgba(255,211,42,.4);
@@ -478,6 +489,16 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
   <!-- ── PANEL CHOFER ── -->
   <div class="panel" id="panel-chofer">
+    <!-- RETOMAR VIAJE BANNER -->
+    <div class="retomar-banner" id="retomar-banner">
+      <div class="retomar-title">🚌 TIENES UN VIAJE EN CURSO</div>
+      <div class="retomar-info" id="retomar-info">Cargando...</div>
+      <div class="retomar-btns">
+        <button class="btn btn-primary" style="flex:2" onclick="retomarViaje()">▶️ CONTINUAR VIAJE</button>
+        <button class="btn btn-danger" style="flex:1" onclick="cancelarViajePropio()">🗑️ CANCELAR</button>
+      </div>
+    </div>
+
     <!-- OFFLINE BANNER -->
     <div class="offline-banner" id="offline-banner">
       ⚠️ Sin conexión — los viajes se guardarán localmente y se sincronizarán al reconectar
@@ -1030,6 +1051,7 @@ function suscribirDatos() {
   // Viajes activos
   DB.ref('viajesActivos').on('value', snap => {
     DATA.viajesActivos = snap.val() || {};
+    if(SESSION.role==='chofer' && SESSION.unidad) checkViajeActivo();
     if (document.getElementById('units-grid').innerHTML !== '') renderMonitor();
   });
   // Historial del día
@@ -1146,6 +1168,8 @@ function doLogin() {
   setInterval(renderMonitor,15000);
   renderMonitor();
   actualizarMesLabel();
+  // Check for active trip after data loads (give Firebase 1.5s to sync)
+  if(role==='chofer') setTimeout(checkViajeActivo, 1500);
 }
 
 function logout() {
@@ -1333,7 +1357,7 @@ function registrarMamas(){
   // Calcular tardanza en Mamás
   const v=DATA.viajesActivos[u];
   const mamasEspMin = v ? v.salidaMin + tiempoEsp(v.origen,'MAMAS') : 0;
-  const mamasLlegadaMin = horaAMin(hora);
+  const mamasLlegadaMin = horaAMinCross(hora, v.salida);
   const tardMamas = Math.max(0, mamasLlegadaMin - mamasEspMin);
   fbUpdate('viajesActivos/'+u, {mamasHora:hora, gpsMamas:gpsSnap, gpsOkMamas:gpsOk, tardMamas:tardMamas, mamasEspMin:mamasEspMin});
   if(!gpsOk&&gpsPos) fbPush('gpsAlertas',{tipo:'MAMÁS',unidad:u,dist,hora,punto:'MAMAS',fecha:hoy(),ts:Date.now()});
@@ -1355,7 +1379,7 @@ function registrarLlegada(){
   if(!v){ showAlert('llegada-alert','Sin viaje activo. Registra salida primero.','err'); return; }
   let gpsOk=true,dist=null,gpsSnap=null;
   if(gpsPos){ dist=Math.round(distPunto(destino)); gpsOk=dist<=radioDelPunto(destino); gpsSnap={lat:gpsPos.lat,lon:gpsPos.lon,acc:Math.round(gpsPos.acc)}; }
-  const llegadaMin=horaAMin(hora);
+  const llegadaMin=horaAMinCross(hora, v.salida);
   const tardLlegada=Math.max(0,llegadaMin-v.esperadaMin);  // tardanza en llegada final
   const tardMamas=v.tardMamas||0;                           // tardanza en Mamás (ya calculada)
   const tardMin=tardLlegada+tardMamas;                      // TOTAL = Mamás + Llegada
@@ -1896,6 +1920,121 @@ function exportarPDFTodas() {
   w.document.close();
 }
 
+
+// ═══════════════════════════════════════════════════════
+//  RETOMAR VIAJE ACTIVO (cuando el chofer vuelve a entrar)
+// ═══════════════════════════════════════════════════════
+function checkViajeActivo() {
+  if (!SESSION.unidad || SESSION.role !== 'chofer') return;
+  const v = DATA.viajesActivos[SESSION.unidad];
+  const banner = document.getElementById('retomar-banner');
+  const info   = document.getElementById('retomar-info');
+  if (!banner) return;
+
+  if (v && v.salida) {
+    // Hay viaje activo — mostrar banner
+    const ahora = horaAMin(ahoraTxt());
+    const tardActual = Math.max(0, ahora - v.esperadaMin);
+    const paso = v.mamasHora ? '3 — Llegada final' : '2 — Mamás';
+    info.innerHTML = `
+      <strong>${v.origen} → ${v.destino}</strong><br>
+      Salida: <span class="mono">${v.salida}</span> &nbsp;·&nbsp;
+      Hora Mamás esperada: <span class="mono">${minAHora(v.salidaMin + tiempoEsp(v.origen,'MAMAS'))}</span><br>
+      ${v.mamasHora ? `✅ Mamás registrado: <span class="mono">${v.mamasHora}</span><br>` : ''}
+      Llegada esperada: <span class="mono" style="color:var(--mamas)">${minAHora(v.esperadaMin)}</span>
+      ${tardActual > 0 ? `&nbsp;<span style="color:var(--red)">· +${tardActual}min TARDE</span>` : ''}<br>
+      <span style="color:var(--muted2);font-size:11px">Continúa en el Paso ${paso}</span>`;
+    banner.classList.add('show');
+
+    // Hide paso 1 if viaje is active
+    document.getElementById('card-salida') && (document.getElementById('card-salida').style.opacity='0.4');
+    document.getElementById('card-salida') && (document.getElementById('card-salida').style.pointerEvents='none');
+  } else {
+    banner.classList.remove('show');
+    // Restore paso 1
+    const cs = document.getElementById('card-salida');
+    if(cs){cs.style.opacity='1';cs.style.pointerEvents='auto';}
+  }
+}
+
+function retomarViaje() {
+  const v = DATA.viajesActivos[SESSION.unidad];
+  if (!v) { checkViajeActivo(); return; }
+
+  // Restore UI state based on trip progress
+  document.getElementById('retomar-banner').classList.remove('show');
+
+  // Restore paso 1 card opacity (locked)
+  const cs = document.getElementById('card-salida');
+  if(cs){cs.style.opacity='0.4';cs.style.pointerEvents='none';}
+
+  // Restore origen display
+  const sOrigen = document.getElementById('s-origen');
+  if(sOrigen) sOrigen.value = v.origen;
+
+  // Restore hora salida
+  const hSal = document.getElementById('h-salida');
+  if(hSal) hSal.value = v.salida;
+
+  // Restore destino display
+  const ldest = document.getElementById('l-destino');
+  if(ldest) ldest.value = v.destino;
+  const dd = document.getElementById('destino-display');
+  if(dd){
+    dd.textContent = v.destino;
+    dd.style.color = v.destino==='APLAO'?'var(--aplao)':'var(--corire)';
+    dd.style.borderColor = v.destino==='APLAO'?'var(--aplao)':'var(--corire)';
+  }
+
+  if (!v.mamasHora) {
+    // Estaba en Paso 2
+    document.getElementById('card-mamas').style.opacity='1';
+    document.getElementById('card-mamas').style.pointerEvents='auto';
+    document.getElementById('card-llegada').style.opacity='0.4';
+    document.getElementById('card-llegada').style.pointerEvents='none';
+    document.getElementById('incidente-section').style.display='block';
+    setStep(2);
+  } else {
+    // Estaba en Paso 3
+    document.getElementById('card-mamas').style.opacity='1';
+    document.getElementById('card-mamas').style.pointerEvents='auto';
+    document.getElementById('card-llegada').style.opacity='1';
+    document.getElementById('card-llegada').style.pointerEvents='auto';
+    document.getElementById('incidente-section').style.display='block';
+    setStep(3);
+  }
+
+  resetAutoLocks();
+  iniciarCountdowns(v);
+  showAlert('salida-alert', `▶️ Viaje retomado · ${v.origen} → ${v.destino} · Salida ${v.salida}`, 'ok');
+}
+
+function cancelarViajePropio() {
+  if (!confirm('¿Cancelar el viaje activo? Se eliminará sin registrar llegada ni tardanza.')) return;
+  const u = SESSION.unidad;
+  const v = DATA.viajesActivos[u];
+  if (v) {
+    fbPush('viajesAnulados', {...v, motivo:'Cancelado por el chofer', anuladoPor:'CHOFER', anuladoEn:new Date().toISOString()});
+    fbRemove('viajesActivos/' + u);
+  }
+  // Reset UI
+  document.getElementById('retomar-banner').classList.remove('show');
+  const cs = document.getElementById('card-salida');
+  if(cs){cs.style.opacity='1';cs.style.pointerEvents='auto';}
+  document.getElementById('card-mamas').style.opacity='0.4';
+  document.getElementById('card-mamas').style.pointerEvents='none';
+  document.getElementById('card-llegada').style.opacity='0.4';
+  document.getElementById('card-llegada').style.pointerEvents='none';
+  document.getElementById('incidente-section').style.display='none';
+  document.getElementById('s-origen').value='';
+  document.getElementById('l-destino').value='';
+  const ddR=document.getElementById('destino-display');
+  if(ddR){ddR.textContent='— Automático según origen —';ddR.style.color='';ddR.style.borderColor='';}
+  ocultarCountdowns();
+  setStep(1);
+  showAlert('salida-alert','Viaje cancelado. Puedes registrar una nueva salida.','ok');
+}
+
 // ── CONFIG FIREBASE RUTA CORIRE-APLAO ──
 const FIREBASE_CFG_PRESET = {
   apiKey:            "AIzaSyAYsETvB3xPRqu9KXw9iCeUUanZrDBuifM",
@@ -2083,7 +2222,9 @@ function tickCountdown(viaje) {
   // Usar Date.now() para segundos precisos
   const ahora = new Date();
   const ahoraMinReal = ahora.getHours()*60 + ahora.getMinutes();
-  const ahoraSegReal = ahora.getHours()*3600 + ahora.getMinutes()*60 + ahora.getSeconds();
+  let ahoraSegReal = ahora.getHours()*3600 + ahora.getMinutes()*60 + ahora.getSeconds();
+  // Si la salida fue antes de medianoche y ahora es madrugada (o viceversa), ajustar
+  if(v.salidaMin && ahoraSegReal/60 < v.salidaMin - 60) ahoraSegReal += 1440*60;
 
   // ── MAMÁS: DESCENDENTE (cuánto falta) ──
   if (!v.mamasHora) {
@@ -2239,7 +2380,7 @@ function cancelarAutoLlegada() {
 function ejecutarAutoLlegada(viaje) {
   const hora = ahoraTxt();
   const u = SESSION.unidad;
-  const llegadaMin = horaAMin(hora);
+  const llegadaMin = horaAMinCross(hora, viaje.salida);
   const tardLlegada = Math.max(0, llegadaMin - viaje.esperadaMin);
   const tardMamas = viaje.tardMamas||0;
   const tardMin = tardLlegada + tardMamas;
