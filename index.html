@@ -1367,7 +1367,12 @@ function registrarSalida(){
 
 function registrarMamas(){
   const u=SESSION.unidad;
-  const hora=ahoraTxt(); // hora automática del servidor al tocar botón
+  const hora=ahoraTxt();
+  // Cancelar auto-mamas si estaba en curso
+  if(_autoMamasTimer){clearInterval(_autoMamasTimer);_autoMamasTimer=null;}
+  window._autoMamasLock=false; window._cancelMamas=false;
+  const cancelMBox=document.getElementById('cancel-mamas-box');
+  if(cancelMBox) cancelMBox.style.display='none';
   let gpsOk=true,dist=null,gpsSnap=null;
   if(gpsPos){ dist=Math.round(distPunto('MAMAS')); gpsOk=dist<=radioDelPunto('MAMAS'); gpsSnap={lat:gpsPos.lat,lon:gpsPos.lon,acc:Math.round(gpsPos.acc)}; }
   // Calcular tardanza en Mamás
@@ -1395,6 +1400,11 @@ function registrarLlegada(){
   const hora=ahoraTxt();
   const v=DATA.viajesActivos[u];
   if(!v){ showAlert('llegada-alert','Sin viaje activo. Registra salida primero.','err'); return; }
+  // Cancelar cualquier auto-registro en curso y limpiar locks
+  if(_autoLlegadaTimer){clearInterval(_autoLlegadaTimer);_autoLlegadaTimer=null;}
+  window._autoLlegadaLock=false; window._cancelLlegada=false;
+  const cancelBox=document.getElementById('cancel-llegada-box');
+  if(cancelBox) cancelBox.style.display='none';
   // Destino: siempre desde Firebase (no depender del select que puede estar vacío)
   const destino = v.destino || document.getElementById('l-destino').value;
   if(!destino){ showAlert('llegada-alert','Error: destino no encontrado. Contacta al supervisor.','err'); return; }
@@ -2483,10 +2493,18 @@ function iniciarAutoMamas(viaje) {
 }
 
 function cancelarAutoMamas() {
-  window._cancelMamas=true; window._autoMamasLock=false;
+  window._cancelMamas=true;
+  window._autoMamasLock=true; // mantener lock 15s para evitar re-disparo inmediato
   if(_autoMamasTimer){clearInterval(_autoMamasTimer);_autoMamasTimer=null;}
-  document.getElementById('cancel-mamas-box').style.display='none';
+  const box=document.getElementById('cancel-mamas-box');
+  if(box) box.style.display='none';
   beep(440,300,0.3);
+  setTimeout(()=>{
+    if(SESSION.unidad&&!DATA.viajesActivos[SESSION.unidad]?.mamasHora) {
+      window._autoMamasLock=false;
+      window._cancelMamas=false;
+    }
+  }, 15000);
 }
 
 function ejecutarAutoMamas(viaje) {
@@ -2536,10 +2554,19 @@ function iniciarAutoLlegada(viaje) {
 }
 
 function cancelarAutoLlegada() {
-  window._cancelLlegada=true; window._autoLlegadaLock=false;
+  window._cancelLlegada=true;
+  window._autoLlegadaLock=true; // mantener lock 15s para evitar re-disparo inmediato
   if(_autoLlegadaTimer){clearInterval(_autoLlegadaTimer);_autoLlegadaTimer=null;}
-  document.getElementById('cancel-llegada-box').style.display='none';
+  const box=document.getElementById('cancel-llegada-box');
+  if(box) box.style.display='none';
   beep(440,300,0.3);
+  // Liberar lock después de 15s si no se registró manualmente
+  setTimeout(()=>{
+    if(!DATA.viajesActivos[SESSION.unidad]?.llegada) {
+      window._autoLlegadaLock=false;
+      window._cancelLlegada=false;
+    }
+  }, 15000);
 }
 
 function ejecutarAutoLlegada(viaje) {
