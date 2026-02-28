@@ -124,7 +124,11 @@ select:focus,input:focus{border-color:var(--corire)}
   background:var(--s2);border-bottom:1px solid var(--border);
   padding:8px 14px;display:flex;align-items:center;justify-content:center;gap:0;
 }
-.rh-stop{text-align:center;min-width:70px}
+.rh-stop{text-align:center;min-width:64px}
+.rh-stop.active .rh-circle{box-shadow:0 0 0 3px rgba(255,255,255,.4);transform:scale(1.12)}
+.rh-stop.done .rh-circle{opacity:.7}
+.rh-arrow{position:absolute;top:50%;font-size:10px;color:var(--muted2);transform:translateY(-50%)}
+.rh-time-below{font-family:var(--fm);font-size:9px;color:var(--muted2);margin-top:3px;letter-spacing:.3px}
 .rh-circle{
   width:34px;height:34px;border-radius:50%;
   display:flex;align-items:center;justify-content:center;
@@ -476,13 +480,14 @@ tr:hover td{background:rgba(255,255,255,.02)}
     </div>
   </div>
 
-  <!-- ROUTE HEADER -->
-  <div class="route-header">
-    <div class="rh-stop"><div class="rh-circle rh-c">CORIRE</div><div class="rh-name" style="color:var(--corire)">CORIRE</div></div>
-    <div class="rh-line"><span class="rh-time">18 min</span></div>
-    <div class="rh-stop"><div class="rh-circle rh-m">MAMÁS</div><div class="rh-name" style="color:var(--mamas)">MAMÁS</div></div>
-    <div class="rh-line"><span class="rh-time">12 min</span></div>
-    <div class="rh-stop"><div class="rh-circle rh-a">APLAO</div><div class="rh-name" style="color:var(--aplao)">APLAO</div></div>
+  <!-- ROUTE HEADER — dinámico según viaje -->
+  <div class="route-header" id="route-header">
+    <!-- Se renderiza por updateRouteDiagram() -->
+    <div class="rh-stop"><div class="rh-circle rh-c">COR</div><div class="rh-name" style="color:var(--corire)">CORIRE</div></div>
+    <div class="rh-line"><span class="rh-time" id="rh-t1">18 min</span><span class="rh-arrow" style="right:-6px">→</span></div>
+    <div class="rh-stop"><div class="rh-circle rh-m">MMA</div><div class="rh-name" style="color:var(--mamas)">MAMÁS</div></div>
+    <div class="rh-line"><span class="rh-time" id="rh-t2">12 min</span><span class="rh-arrow" style="right:-6px">→</span></div>
+    <div class="rh-stop"><div class="rh-circle rh-a">APL</div><div class="rh-name" style="color:var(--aplao)">APLAO</div></div>
   </div>
 
   <div class="tabs" id="tab-bar"></div>
@@ -525,7 +530,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div class="card-title">🚀 PASO 1 — REGISTRAR SALIDA</div>
       <div class="frow">
         <div class="fg"><label>Punto de Salida</label>
-          <select id="s-origen" onchange="actualizarProximidad()">
+          <select id="s-origen" onchange="actualizarProximidad();updateRouteDiagram(this.value)">
             <option value="">— Selecciona —</option>
             <option value="CORIRE">CORIRE</option>
             <option value="APLAO">APLAO</option>
@@ -690,7 +695,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div class="card-title">VIAJES EN CURSO</div>
       <div class="tbl-wrap">
         <table>
-          <thead><tr><th>U#</th><th>Origen</th><th>Salida</th><th>Destino</th><th>Esperada</th><th>Tardanza</th><th>GPS</th><th>Acum S/</th><th>⚙️</th></tr></thead>
+          <thead><tr><th>U#</th><th>Origen</th><th>Salida</th><th>Mamás</th><th>Destino</th><th>Esperada</th><th>Tardanza</th><th>GPS</th><th>Acum S/</th><th>⚙️</th></tr></thead>
           <tbody id="monitor-tbody"></tbody>
         </table>
       </div>
@@ -1169,7 +1174,8 @@ function doLogin() {
   renderMonitor();
   actualizarMesLabel();
   // Check for active trip after data loads (give Firebase 1.5s to sync)
-  if(role==='chofer') setTimeout(checkViajeActivo, 1500);
+  if(role==='chofer') setTimeout(()=>{ checkViajeActivo(); updateRouteDiagram(); }, 1500);
+  else updateRouteDiagram();
 }
 
 function logout() {
@@ -1347,6 +1353,7 @@ function registrarSalida(){
   setStep(2);
   resetAutoLocks();
   iniciarCountdowns(STATE_viaje_actual());
+  updateRouteDiagram(origen);
 }
 
 function registrarMamas(){
@@ -1456,10 +1463,15 @@ function renderMonitor(){
         </div>
         <div class="uc-gps">${v.gpsOk!==false?'📍 GPS OK':'⚠️ GPS ALERTA'}</div>
       </div>`;
+      const mamasEspMon = minAHora(v.salidaMin + tiempoEsp(v.origen,'MAMAS'));
+      const mamasCelda = v.mamasHora
+        ? `<span style="color:var(--mamas);font-family:var(--fm)">${v.mamasHora} ✅</span>`
+        : `<span style="color:var(--muted2);font-family:var(--fm)">${mamasEspMon}</span>`;
       tbody+=`<tr>
-        <td><strong class="mono">U${String(i).padStart(2,'0')}</strong></td>
+        <td><strong class="mono">U${String(i).padStart(2,'0')}</strong><div class="chofer-name-tag">${getNombreChofer(i)}</div></td>
         <td><span class="badge badge-${v.origen==='CORIRE'?'c':'a'}">${v.origen}</span></td>
         <td class="mono">${v.salida}</td>
+        <td>${mamasCelda}</td>
         <td><span class="badge badge-${v.destino==='CORIRE'?'c':'a'}">${v.destino}</span></td>
         <td class="mono" style="color:var(--mamas)">${minAHora(v.esperadaMin)}</td>
         <td class="${tardAct>0?'money':''}">${tardAct>0?`+${tardAct}m`:'—'}</td>
@@ -1477,7 +1489,7 @@ function renderMonitor(){
     }
   }
   document.getElementById('units-grid').innerHTML=grid;
-  document.getElementById('monitor-tbody').innerHTML=tbody||'<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:16px">Sin unidades en ruta</td></tr>';
+  document.getElementById('monitor-tbody').innerHTML=tbody||'<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:16px">Sin unidades en ruta</td></tr>';
   document.getElementById('st-en-ruta').textContent=enRuta;
   document.getElementById('st-tarde').textContent=tarde;
   document.getElementById('st-gps-al').textContent=gpsAl;
@@ -2007,6 +2019,7 @@ function retomarViaje() {
   resetAutoLocks();
   iniciarCountdowns(v);
   showAlert('salida-alert', `▶️ Viaje retomado · ${v.origen} → ${v.destino} · Salida ${v.salida}`, 'ok');
+  updateRouteDiagram(v.origen);
 }
 
 function cancelarViajePropio() {
@@ -2033,6 +2046,127 @@ function cancelarViajePropio() {
   ocultarCountdowns();
   setStep(1);
   showAlert('salida-alert','Viaje cancelado. Puedes registrar una nueva salida.','ok');
+}
+
+
+// ═══════════════════════════════════════════════════════
+//  DIAGRAMA DE RUTA DINÁMICO
+// ═══════════════════════════════════════════════════════
+function updateRouteDiagram(origen) {
+  const cfg = DATA.config.tiempos;
+  const v = SESSION.unidad ? DATA.viajesActivos[SESSION.unidad] : null;
+  const actualOrigen = origen || (v && v.origen) || null;
+
+  // Tiempos según dirección
+  let t1, t2, dir, mamasEspera;
+  if (actualOrigen === 'CORIRE') {
+    t1 = cfg.cm || 18;   // CORIRE → MAMÁS
+    t2 = cfg.ma || 12;   // MAMÁS → APLAO
+    dir = 1;             // izquierda a derecha
+    mamasEspera = 0;
+  } else if (actualOrigen === 'APLAO') {
+    t1 = cfg.am || 19;   // APLAO → MAMÁS
+    t2 = cfg.mc || 13;   // MAMÁS → CORIRE
+    dir = -1;            // derecha a izquierda
+    mamasEspera = 0;
+  } else {
+    // Sin viaje: mostrar ambas direcciones
+    t1 = cfg.cm || 18;
+    t2 = cfg.ma || 12;
+    dir = 0;
+    mamasEspera = 0;
+  }
+
+  const flecha = dir === 1 ? '→' : dir === -1 ? '←' : '↔';
+
+  // Determinar estado de cada punto
+  const paso = v ? (v.mamasHora ? 3 : 2) : 1;
+  const corireClass = actualOrigen === 'CORIRE' ? 'active' : (actualOrigen === 'APLAO' && v?.llegada ? 'done' : '');
+  const mamasClass  = paso === 2 ? 'active' : paso === 3 ? 'done' : '';
+  const aplaoClass  = actualOrigen === 'APLAO' ? 'active' : (actualOrigen === 'CORIRE' && v?.llegada ? 'done' : '');
+
+  const rh = document.getElementById('route-header');
+  if (!rh) return;
+
+  if (dir === -1) {
+    // APLAO → MAMÁS → CORIRE
+    rh.innerHTML = `
+      <div class="rh-stop ${aplaoClass}">
+        <div class="rh-circle rh-a">APL</div>
+        <div class="rh-name" style="color:var(--aplao)">APLAO</div>
+        <div class="rh-time-below" style="color:var(--aplao);font-size:8px">SALIDA</div>
+      </div>
+      <div class="rh-line">
+        <span class="rh-time">${t1} min</span>
+        <span style="position:absolute;right:-8px;top:50%;transform:translateY(-50%);color:var(--muted2);font-size:11px">→</span>
+      </div>
+      <div class="rh-stop ${mamasClass}">
+        <div class="rh-circle rh-m">MMA</div>
+        <div class="rh-name" style="color:var(--mamas)">MAMÁS</div>
+        <div class="rh-time-below" style="color:var(--muted)">PASO</div>
+      </div>
+      <div class="rh-line">
+        <span class="rh-time">${t2} min</span>
+        <span style="position:absolute;right:-8px;top:50%;transform:translateY(-50%);color:var(--muted2);font-size:11px">→</span>
+      </div>
+      <div class="rh-stop ${corireClass}">
+        <div class="rh-circle rh-c">COR</div>
+        <div class="rh-name" style="color:var(--corire)">CORIRE</div>
+        <div class="rh-time-below" style="color:var(--corire);font-size:8px">DESTINO</div>
+      </div>`;
+  } else if (dir === 1) {
+    // CORIRE → MAMÁS → APLAO
+    rh.innerHTML = `
+      <div class="rh-stop ${corireClass}">
+        <div class="rh-circle rh-c">COR</div>
+        <div class="rh-name" style="color:var(--corire)">CORIRE</div>
+        <div class="rh-time-below" style="color:var(--corire);font-size:8px">SALIDA</div>
+      </div>
+      <div class="rh-line">
+        <span class="rh-time">${t1} min</span>
+        <span style="position:absolute;right:-8px;top:50%;transform:translateY(-50%);color:var(--muted2);font-size:11px">→</span>
+      </div>
+      <div class="rh-stop ${mamasClass}">
+        <div class="rh-circle rh-m">MMA</div>
+        <div class="rh-name" style="color:var(--mamas)">MAMÁS</div>
+        <div class="rh-time-below" style="color:var(--muted)">PASO</div>
+      </div>
+      <div class="rh-line">
+        <span class="rh-time">${t2} min</span>
+        <span style="position:absolute;right:-8px;top:50%;transform:translateY(-50%);color:var(--muted2);font-size:11px">→</span>
+      </div>
+      <div class="rh-stop ${aplaoClass}">
+        <div class="rh-circle rh-a">APL</div>
+        <div class="rh-name" style="color:var(--aplao)">APLAO</div>
+        <div class="rh-time-below" style="color:var(--aplao);font-size:8px">DESTINO</div>
+      </div>`;
+  } else {
+    // Sin selección — mostrar CORIRE↔MAMÁS↔APLAO con ambas flechas
+    rh.innerHTML = `
+      <div class="rh-stop">
+        <div class="rh-circle rh-c">COR</div>
+        <div class="rh-name" style="color:var(--corire)">CORIRE</div>
+        <div class="rh-time-below" style="color:var(--muted);font-size:7px">${cfg.ca||31}min a APLAO</div>
+      </div>
+      <div class="rh-line" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:40px">
+        <span style="font-size:8px;color:var(--muted2);font-family:var(--fm)">${cfg.cm||18}m →</span>
+        <span style="font-size:8px;color:var(--muted2);font-family:var(--fm);margin-top:2px">← ${cfg.am||19}m</span>
+      </div>
+      <div class="rh-stop">
+        <div class="rh-circle rh-m">MMA</div>
+        <div class="rh-name" style="color:var(--mamas)">MAMÁS</div>
+        <div class="rh-time-below" style="color:var(--muted);font-size:7px">INTERMEDIO</div>
+      </div>
+      <div class="rh-line" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:40px">
+        <span style="font-size:8px;color:var(--muted2);font-family:var(--fm)">${cfg.ma||12}m →</span>
+        <span style="font-size:8px;color:var(--muted2);font-family:var(--fm);margin-top:2px">← ${cfg.mc||13}m</span>
+      </div>
+      <div class="rh-stop">
+        <div class="rh-circle rh-a">APL</div>
+        <div class="rh-name" style="color:var(--aplao)">APLAO</div>
+        <div class="rh-time-below" style="color:var(--muted);font-size:7px">${cfg.ca||31}min a CORIRE</div>
+      </div>`;
+  }
 }
 
 // ── CONFIG FIREBASE RUTA CORIRE-APLAO ──
