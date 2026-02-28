@@ -990,6 +990,7 @@ let DATA = {
 };
 let OFFLINE_QUEUE = JSON.parse(localStorage.getItem('offline_queue')||'[]');
 let isOnline = true;
+let _viajeEnCurso = false; // true cuando el chofer ya está en un viaje activo en esta sesión
 
 // ═══════════════════════════════════════════════════════
 //  FIREBASE SETUP
@@ -1056,7 +1057,7 @@ function suscribirDatos() {
   // Viajes activos
   DB.ref('viajesActivos').on('value', snap => {
     DATA.viajesActivos = snap.val() || {};
-    if(SESSION.role==='chofer' && SESSION.unidad) checkViajeActivo();
+    // NO llamar checkViajeActivo aquí — solo al hacer login
     if (document.getElementById('units-grid').innerHTML !== '') renderMonitor();
   });
   // Historial del día
@@ -1236,6 +1237,13 @@ function iniciarGPS(){
       gpsPos={lat:pos.coords.latitude,lon:pos.coords.longitude,acc:pos.coords.accuracy};
       const cerca=puntoMasCercano();
       setBanner('ok',`GPS ±${Math.round(pos.coords.accuracy)}m · Cerca de ${cerca.punto} (${Math.round(cerca.dist)}m)`);
+      // Auto-seleccionar origen si no hay viaje activo y no hay origen elegido
+      const sel=document.getElementById('s-origen');
+      const tieneViaje=SESSION.unidad&&DATA.viajesActivos[SESSION.unidad];
+      if(sel&&!sel.value&&!tieneViaje&&SESSION.role==='chofer'){
+        if(cerca.punto==='CORIRE'&&cerca.dist<=600){ sel.value='CORIRE'; updateRouteDiagram('CORIRE'); }
+        else if(cerca.punto==='APLAO'&&cerca.dist<=600){ sel.value='APLAO'; updateRouteDiagram('APLAO'); }
+      }
       actualizarProximidad();
     },
     ()=>{ gpsPos=null; setBanner('err','GPS desactivado – registros sin validación GPS'); },
@@ -1350,6 +1358,7 @@ function registrarSalida(){
   document.getElementById('card-mamas').style.opacity='1';
   document.getElementById('card-mamas').style.pointerEvents='auto';
   document.getElementById('incidente-section').style.display='block';
+  _viajeEnCurso = true;
   setStep(2);
   resetAutoLocks();
   iniciarCountdowns(STATE_viaje_actual());
@@ -1951,8 +1960,9 @@ function checkViajeActivo() {
   const info   = document.getElementById('retomar-info');
   if (!banner) return;
 
-  if (v && v.salida) {
-    // Hay viaje activo — mostrar banner
+  // Solo mostrar banner si el viaje ya existía ANTES de esta sesión (no recién registrado)
+  if (v && v.salida && !_viajeEnCurso) {
+    // Hay viaje activo de sesión anterior — mostrar banner
     const ahora = horaAMin(ahoraTxt());
     const tardActual = Math.max(0, ahora - v.esperadaMin);
     const paso = v.mamasHora ? '3 — Llegada final' : '2 — Mamás';
@@ -1981,7 +1991,7 @@ function retomarViaje() {
   const v = DATA.viajesActivos[SESSION.unidad];
   if (!v) { checkViajeActivo(); return; }
 
-  // Restore UI state based on trip progress
+  _viajeEnCurso = true;
   document.getElementById('retomar-banner').classList.remove('show');
 
   // Restore paso 1 card opacity (locked)
@@ -2053,7 +2063,7 @@ function cancelarViajePropio() {
     fbPush('viajesAnulados', {...v, motivo:'Cancelado por el chofer', anuladoPor:'CHOFER', anuladoEn:new Date().toISOString()});
     fbRemove('viajesActivos/' + u);
   }
-  // Reset UI
+  _viajeEnCurso = false;
   document.getElementById('retomar-banner').classList.remove('show');
   const cs = document.getElementById('card-salida');
   if(cs){cs.style.opacity='1';cs.style.pointerEvents='auto';}
@@ -2164,30 +2174,28 @@ function updateRouteDiagram(origen) {
         <div class="rh-time-below" style="color:var(--aplao);font-size:8px">DESTINO</div>
       </div>`;
   } else {
-    // Sin selección — mostrar CORIRE↔MAMÁS↔APLAO con ambas flechas
+    // Sin viaje — mostrar ambas direcciones con tiempos correctos
+    const cm = cfg.cm||18, am = cfg.am||19, ma = cfg.ma||12, mc = cfg.mc||13;
     rh.innerHTML = `
       <div class="rh-stop">
         <div class="rh-circle rh-c">COR</div>
         <div class="rh-name" style="color:var(--corire)">CORIRE</div>
-        <div class="rh-time-below" style="color:var(--muted);font-size:7px">${cfg.ca||31}min a APLAO</div>
       </div>
-      <div class="rh-line" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:40px">
-        <span style="font-size:8px;color:var(--muted2);font-family:var(--fm)">${cfg.cm||18}m →</span>
-        <span style="font-size:8px;color:var(--muted2);font-family:var(--fm);margin-top:2px">← ${cfg.am||19}m</span>
+      <div class="rh-line" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px">
+        <span style="font-size:8px;color:var(--muted2);font-family:var(--fm);white-space:nowrap">${cm}m →</span>
+        <span style="font-size:8px;color:var(--muted2);font-family:var(--fm);white-space:nowrap">← ${am}m</span>
       </div>
       <div class="rh-stop">
         <div class="rh-circle rh-m">MMA</div>
         <div class="rh-name" style="color:var(--mamas)">MAMÁS</div>
-        <div class="rh-time-below" style="color:var(--muted);font-size:7px">INTERMEDIO</div>
       </div>
-      <div class="rh-line" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:40px">
-        <span style="font-size:8px;color:var(--muted2);font-family:var(--fm)">${cfg.ma||12}m →</span>
-        <span style="font-size:8px;color:var(--muted2);font-family:var(--fm);margin-top:2px">← ${cfg.mc||13}m</span>
+      <div class="rh-line" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px">
+        <span style="font-size:8px;color:var(--muted2);font-family:var(--fm);white-space:nowrap">${ma}m →</span>
+        <span style="font-size:8px;color:var(--muted2);font-family:var(--fm);white-space:nowrap">← ${mc}m</span>
       </div>
       <div class="rh-stop">
         <div class="rh-circle rh-a">APL</div>
         <div class="rh-name" style="color:var(--aplao)">APLAO</div>
-        <div class="rh-time-below" style="color:var(--muted);font-size:7px">${cfg.ca||31}min a CORIRE</div>
       </div>`;
   }
 }
