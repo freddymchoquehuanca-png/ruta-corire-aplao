@@ -1330,9 +1330,17 @@ function registrarMamas(){
   const hora=ahoraTxt(); // hora automática del servidor al tocar botón
   let gpsOk=true,dist=null,gpsSnap=null;
   if(gpsPos){ dist=Math.round(distPunto('MAMAS')); gpsOk=dist<=radioDelPunto('MAMAS'); gpsSnap={lat:gpsPos.lat,lon:gpsPos.lon,acc:Math.round(gpsPos.acc)}; }
-  fbUpdate('viajesActivos/'+u, {mamasHora:hora,gpsMamas:gpsSnap,gpsOkMamas:gpsOk});
+  // Calcular tardanza en Mamás
+  const v=DATA.viajesActivos[u];
+  const mamasEspMin = v ? v.salidaMin + tiempoEsp(v.origen,'MAMAS') : 0;
+  const mamasLlegadaMin = horaAMin(hora);
+  const tardMamas = Math.max(0, mamasLlegadaMin - mamasEspMin);
+  fbUpdate('viajesActivos/'+u, {mamasHora:hora, gpsMamas:gpsSnap, gpsOkMamas:gpsOk, tardMamas:tardMamas, mamasEspMin:mamasEspMin});
   if(!gpsOk&&gpsPos) fbPush('gpsAlertas',{tipo:'MAMÁS',unidad:u,dist,hora,punto:'MAMAS',fecha:hoy(),ts:Date.now()});
-  showAlert('mamas-alert',gpsOk?`📍 Mamás registrado · Hora: ${hora}`:`⚠️ GPS: ${dist}m de Mamás · Hora grabada: ${hora}`,gpsOk?'ok':'warn');
+  const msgMamas = tardMamas>0
+    ? `⚠️ Mamás +${tardMamas}min tarde · Hora: ${hora} (esperada: ${minAHora(mamasEspMin)})`
+    : `📍 Mamás a tiempo · Hora: ${hora}`;
+  showAlert('mamas-alert', msgMamas, tardMamas>0?'warn':'ok');
   document.getElementById('card-llegada').style.opacity='1';
   document.getElementById('card-llegada').style.pointerEvents='auto';
   setStep(3);
@@ -1348,20 +1356,29 @@ function registrarLlegada(){
   let gpsOk=true,dist=null,gpsSnap=null;
   if(gpsPos){ dist=Math.round(distPunto(destino)); gpsOk=dist<=radioDelPunto(destino); gpsSnap={lat:gpsPos.lat,lon:gpsPos.lon,acc:Math.round(gpsPos.acc)}; }
   const llegadaMin=horaAMin(hora);
-  const tardMin=Math.max(0,llegadaMin-v.esperadaMin);
+  const tardLlegada=Math.max(0,llegadaMin-v.esperadaMin);  // tardanza en llegada final
+  const tardMamas=v.tardMamas||0;                           // tardanza en Mamás (ya calculada)
+  const tardMin=tardLlegada+tardMamas;                      // TOTAL = Mamás + Llegada
   const acumPrev=(DATA.tardanzaAcum[u]||0);
   const acumNuevo=acumPrev+tardMin;
   const todoGpsOk=v.gpsOk!==false&&v.gpsOkMamas!==false&&gpsOk;
-  const viajeComp={...v,destinoFinal:destino,llegada:hora,llegadaMin,tardanza:tardMin,gpsLlegada:gpsSnap,gpsOkLlegada:gpsOk,gpsAlert:!todoGpsOk,completado:Date.now()};
+  const viajeComp={...v,destinoFinal:destino,llegada:hora,llegadaMin,
+    tardanza:tardMin, tardMamas:tardMamas, tardLlegada:tardLlegada,
+    gpsLlegada:gpsSnap,gpsOkLlegada:gpsOk,gpsAlert:!todoGpsOk,completado:Date.now()};
 
   fbRemove('viajesActivos/'+u);
   fbPush('historialDia', viajeComp);
   fbSet('tardanzaAcum/'+u, acumNuevo);
   if(!gpsOk&&gpsPos) fbPush('gpsAlertas',{tipo:'LLEGADA',unidad:u,dist,hora,punto:destino,fecha:hoy(),ts:Date.now()});
 
+  // Mensaje detallado mostrando desglose
+  let msgArr=[];
+  if(tardMamas>0) msgArr.push(`Mamás +${tardMamas}min`);
+  if(tardLlegada>0) msgArr.push(`Llegada +${tardLlegada}min`);
+  const detalle = msgArr.length ? ` (${msgArr.join(', ')})` : '';
   showAlert('llegada-alert',
-    tardMin>0?`⚠️ ${tardMin} min de tardanza · Llegada grabada: ${hora} · Multa: S/${tardMin} · Acum hoy: S/${acumNuevo}`
-            :`✅ A tiempo en ${destino} · Llegada grabada: ${hora}`,
+    tardMin>0?`⚠️ Total ${tardMin}min tardanza${detalle} · Multa: S/${tardMin} · Acum: S/${acumNuevo}`
+            :`✅ A tiempo en ${destino} · Llegada: ${hora}`,
     tardMin>0?'warn':'ok');
 
   setStep(1);
@@ -1458,7 +1475,10 @@ function renderHistorialChofer(){
       <td class="mono">${h.mamasHora||'—'}</td>
       <td><span class="badge badge-${h.destinoFinal==='CORIRE'?'c':'a'}">${h.destinoFinal}</span></td>
       <td class="mono">${h.llegada}</td>
-      <td class="${h.tardanza>0?'money':'ok-txt'}">${h.tardanza>0?`+${h.tardanza}m`:'OK'}</td>
+      <td class="${h.tardanza>0?'money':'ok-txt'}" title="${h.tardMamas>0?'Mamás +'+h.tardMamas+'min':''} ${h.tardLlegada>0?'· Llegada +'+h.tardLlegada+'min':''}">
+        ${h.tardanza>0?`+${h.tardanza}m`:'OK'}
+        ${h.tardMamas>0?`<div style="font-size:9px;color:var(--muted2)">M:+${h.tardMamas}m</div>`:''}
+      </td>
       <td class="${h.tardanza>0?'money':''}">${h.tardanza>0?`S/${h.tardanza}`:'—'}</td>
     </tr>`;
   });
@@ -2167,7 +2187,9 @@ function ejecutarAutoMamas(viaje) {
   const hora = ahoraTxt();
   const u = SESSION.unidad;
   const gpsSnap = gpsPos?{lat:gpsPos.lat,lon:gpsPos.lon,acc:Math.round(gpsPos.acc)}:null;
-  fbUpdate('viajesActivos/'+u, {mamasHora:hora, gpsMamas:gpsSnap, gpsOkMamas:true});
+  const mamasEspMin = viaje ? viaje.salidaMin + tiempoEsp(viaje.origen,'MAMAS') : 0;
+  const tardMamas = Math.max(0, horaAMin(hora) - mamasEspMin);
+  fbUpdate('viajesActivos/'+u, {mamasHora:hora, gpsMamas:gpsSnap, gpsOkMamas:true, tardMamas:tardMamas, mamasEspMin:mamasEspMin});
   beepAutoMarcado();
   showAlert('mamas-alert','🤖 AUTO: Mamás registrado a las '+hora,'ok');
   document.getElementById('card-llegada').style.opacity='1';
@@ -2218,11 +2240,14 @@ function ejecutarAutoLlegada(viaje) {
   const hora = ahoraTxt();
   const u = SESSION.unidad;
   const llegadaMin = horaAMin(hora);
-  const tardMin = Math.max(0, llegadaMin - viaje.esperadaMin);
+  const tardLlegada = Math.max(0, llegadaMin - viaje.esperadaMin);
+  const tardMamas = viaje.tardMamas||0;
+  const tardMin = tardLlegada + tardMamas;
   const acumNuevo = (DATA.tardanzaAcum[u]||0) + tardMin;
   const gpsSnap = gpsPos?{lat:gpsPos.lat,lon:gpsPos.lon,acc:Math.round(gpsPos.acc)}:null;
   const viajeComp = {...viaje, destinoFinal:viaje.destino, llegada:hora, llegadaMin,
-    tardanza:tardMin, gpsLlegada:gpsSnap, gpsOkLlegada:true, gpsAlert:false, completado:Date.now()};
+    tardanza:tardMin, tardMamas:tardMamas, tardLlegada:tardLlegada,
+    gpsLlegada:gpsSnap, gpsOkLlegada:true, gpsAlert:false, completado:Date.now()};
   fbRemove('viajesActivos/'+u);
   fbPush('historialDia', viajeComp);
   fbSet('tardanzaAcum/'+u, acumNuevo);
