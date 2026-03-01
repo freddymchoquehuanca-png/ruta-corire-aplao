@@ -1386,12 +1386,19 @@ function registrarMamas(){
     ? `⚠️ Mamás +${tardMamas}min tarde · Hora: ${hora} (esperada: ${minAHora(mamasEspMin)})`
     : `📍 Mamás a tiempo · Hora: ${hora}`;
   showAlert('mamas-alert', msgMamas, tardMamas>0?'warn':'ok');
+  // Habilitar paso 3 — usar v.destino capturado ANTES del fbUpdate
+  const destinoFinal = v ? v.destino : '';
+  const ldEl = document.getElementById('l-destino');
+  if(ldEl && destinoFinal) ldEl.value = destinoFinal;
+  const ddEl = document.getElementById('destino-display');
+  if(ddEl && destinoFinal){
+    ddEl.textContent = destinoFinal;
+    ddEl.style.color = destinoFinal==='APLAO'?'var(--aplao)':'var(--corire)';
+    ddEl.style.borderColor = destinoFinal==='APLAO'?'var(--aplao)':'var(--corire)';
+  }
   document.getElementById('card-llegada').style.opacity='1';
   document.getElementById('card-llegada').style.pointerEvents='auto';
   document.getElementById('card-llegada').style.display='block';
-  // Asegurar destino en select
-  const vAct = DATA.viajesActivos[SESSION.unidad];
-  if(vAct){ const ldEl=document.getElementById('l-destino'); if(ldEl)ldEl.value=vAct.destino; }
   setStep(3);
 }
 
@@ -1405,12 +1412,9 @@ function registrarLlegada(){
   window._autoLlegadaLock=false; window._cancelLlegada=false;
   const cancelBox=document.getElementById('cancel-llegada-box');
   if(cancelBox) cancelBox.style.display='none';
-  // Destino: siempre desde Firebase (no depender del select que puede estar vacío)
-  const destino = v.destino || document.getElementById('l-destino').value;
-  if(!destino){ showAlert('llegada-alert','Error: destino no encontrado. Contacta al supervisor.','err'); return; }
-  // Asegurar que el select y display estén actualizados
-  const ldEl = document.getElementById('l-destino');
-  if(ldEl && !ldEl.value) ldEl.value = destino;
+  // Destino SIEMPRE desde Firebase — nunca del select
+  const destino = v.destino;
+  if(!destino){ showAlert('llegada-alert','Error: no se encontró destino en Firebase.','err'); return; }
   let gpsOk=true,dist=null,gpsSnap=null;
   if(gpsPos){ dist=Math.round(distPunto(destino)); gpsOk=dist<=radioDelPunto(destino); gpsSnap={lat:gpsPos.lat,lon:gpsPos.lon,acc:Math.round(gpsPos.acc)}; }
   const llegadaMin=horaAMinCross(hora, v.salida);
