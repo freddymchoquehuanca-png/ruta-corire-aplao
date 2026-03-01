@@ -21,15 +21,15 @@
   --r:12px;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html,body{height:100%;overflow:hidden}
+html,body{height:100%;overflow:hidden;position:fixed;width:100%}
 body{font-family:var(--fb);background:var(--ink);color:var(--txt);font-size:14px}
 
 /* ── SCREENS ── */
-.screen{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;overflow-y:auto;background:var(--ink)}
+.screen{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;overflow-y:auto;-webkit-overflow-scrolling:touch;background:var(--ink)}
 .screen.hidden{display:none}
 
 /* ── SETUP ── */
-#s-setup{align-items:center;justify-content:flex-start;padding:40px 20px}
+#s-setup{align-items:center;justify-content:flex-start;padding:40px 20px;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .brand{font-family:var(--fs);font-size:36px;font-weight:800;letter-spacing:-1px;margin-bottom:2px}
 .brand span{color:var(--blu)}
 .brand-sub{font-family:var(--fm);font-size:10px;letter-spacing:4px;color:var(--txt2);margin-bottom:36px}
@@ -79,7 +79,7 @@ body{font-family:var(--fb);background:var(--ink);color:var(--txt);font-size:14px
 .btn:disabled{opacity:.35;pointer-events:none}
 
 /* ── APP SHELL ── */
-#s-app{display:none;flex-direction:column;overflow:hidden}
+#s-app{display:none;flex-direction:column;overflow:hidden;height:100vh;height:100dvh}
 #s-app.vis{display:flex}
 
 /* TOPBAR */
@@ -108,8 +108,8 @@ body{font-family:var(--fb);background:var(--ink);color:var(--txt);font-size:14px
 .tab.active{color:var(--blu);border-color:var(--blu)}
 
 /* CONTENT AREA */
-.content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
-.panel{display:none;padding:14px;max-width:900px;margin:0 auto}
+.content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;min-height:0}
+.panel{display:none;padding:14px 14px 80px;max-width:900px;margin:0 auto}
 .panel.active{display:block}
 
 /* ROUTE BAR */
@@ -395,7 +395,7 @@ canvas{width:100%!important;display:block}
           <div class="prox-label" id="prox-2-lbl">📍 Dist. a Mamás: —</div>
           <div class="prox-track"><div class="prox-fill" id="prox-2-fill" style="width:0%"></div></div>
         </div>
-        <div class="countdown show" id="cd-mamas">
+        <div class="countdown" id="cd-mamas">
           <div class="cd-lbl">⏱ Tiempo para llegar a Mamás</div>
           <div class="cd-val g" id="cd-mamas-val">--:--</div>
           <div class="cd-bar"><div class="cd-fill" id="cd-mamas-fill" style="width:100%;background:var(--grn)"></div></div>
@@ -464,7 +464,7 @@ canvas{width:100%!important;display:block}
     </div>
 
     <!-- ── SUPERVISOR PANEL ── -->
-    <div class="panel" id="panel-sup">
+    <div class="panel" id="panel-sup" style="padding-bottom:80px">
       <!-- Tabs internos -->
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
         <button class="btn btn-blue btn-sm" onclick="showSupTab('historial')">📅 Historial</button>
@@ -948,6 +948,8 @@ function registrarSalida(){
   $('dest-display').textContent=dest;
   $('dest-display').style.color=dest==='APLAO'?'var(--amb)':'var(--blu)';
   $('card-2').classList.remove('disabled');
+  $('cd-mamas').classList.add('show');
+  $('prox-2').style.display='block';
   $('inc-section').style.display='block';
   setStep(2);
   updateRouteBar(origen);
@@ -1007,6 +1009,7 @@ function registrarMamas(){
 // ════════════════════════════════════════════════════
 function registrarLlegada(){
   if(!LV){setAlert('alert-3','Sin viaje activo','err');return;}
+  if(!LV.mamasHora){setAlert('alert-3','Primero marca en Mamás','err');return;}
 
   stopAutoLlegada();
 
