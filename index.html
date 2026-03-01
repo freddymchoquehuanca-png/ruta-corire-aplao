@@ -383,7 +383,7 @@ canvas{width:100%!important;display:block}
           <div style="font-size:10px;font-weight:600;letter-spacing:2px;color:var(--txt2);margin-bottom:6px;text-transform:uppercase">⚡ Frecuencias del supervisor</div>
           <div id="frec-btns" style="display:flex;flex-wrap:wrap;gap:6px"></div>
         </div>
-        <div class="fuera-zona" id="fz-1">📍 Estás lejos del punto de salida · <strong id="fz-1-dist">—</strong></div>
+        <div id="fz-1" style="display:none;border-radius:8px;padding:9px 12px;margin-bottom:10px;font-size:12px;pointer-events:none"></div>
         <div class="alert" id="alert-1"></div>
         <button class="btn btn-blue" onclick="registrarSalida()">🚀 REGISTRAR SALIDA</button>
       </div>
@@ -410,7 +410,7 @@ canvas{width:100%!important;display:block}
           <div class="auto-box-sub">El sistema marcará Mamás automáticamente</div>
           <button class="btn btn-red" onclick="cancelAutoMamas()" style="max-width:180px;margin:0 auto">✋ Cancelar</button>
         </div>
-        <div class="fuera-zona" id="fz-2">📍 Fuera de zona Mamás · <strong id="fz-2-dist">—</strong> · Puedes marcar igualmente</div>
+        <div id="fz-2" style="display:none;border-radius:8px;padding:9px 12px;margin-bottom:10px;font-size:12px;pointer-events:none"></div>
         <div class="alert" id="alert-2"></div>
         <button class="btn btn-green" onclick="registrarMamas()">📍 MARCAR EN MAMÁS</button>
       </div>
@@ -433,7 +433,7 @@ canvas{width:100%!important;display:block}
           <div class="auto-box-sub">El sistema registrará la llegada automáticamente</div>
           <button class="btn btn-red" onclick="cancelAutoLlegada()" style="max-width:180px;margin:0 auto">✋ Cancelar</button>
         </div>
-        <div class="fuera-zona" id="fz-3">📍 Fuera de zona destino · <strong id="fz-3-dist">—</strong> · Puedes registrar igualmente</div>
+        <div id="fz-3" style="display:none;border-radius:8px;padding:9px 12px;margin-bottom:10px;font-size:12px;pointer-events:none"></div>
         <div class="alert" id="alert-3"></div>
         <button class="btn btn-amber" onclick="registrarLlegada()">🏁 REGISTRAR LLEGADA</button>
       </div>
@@ -924,15 +924,47 @@ function updateProx(){
 }
 function updateProxPt(pid,selId,pt){
   const pw=$('prox-'+pid), fz=$('fz-'+pid);
-  if(!pt||!gpsPos){pw.style.display='none';if(fz)fz.style.display='none';return;}
-  pw.style.display='block';
+  if(!pt||!gpsPos){if(pw)pw.style.display='none';if(fz)fz.style.display='none';return;}
+  if(pw) pw.style.display='block';
   const d=distTo(pt), r=FD.config.pts[pt]?.r||200;
+  const inside=d<=r;
   const pct=Math.min(100,Math.max(0,(1-d/r)*100));
-  $('prox-'+pid+'-lbl').textContent=`📍 Dist. a ${pt}: ${fmtDist(d)} (zona: ${r}m)`;
-  $('prox-'+pid+'-fill').style.width=pct+'%';
-  $('prox-'+pid+'-fill').style.background=pct>80?'var(--grn)':pct>40?'var(--amb)':'var(--red)';
-  if(fz) fz.style.display=d>r?'block':'none';
-  if(fz&&d>r) fz.querySelector('strong').textContent=fmtDist(d);
+  const lbl=$('prox-'+pid+'-lbl');
+  const fill=$('prox-'+pid+'-fill');
+  if(lbl) lbl.textContent=`📍 Dist. a ${pt}: ${fmtDist(d)} (zona: ${r}m)`;
+  if(fill){fill.style.width=pct+'%';fill.style.background=inside?'var(--grn)':pct>40?'var(--amb)':'var(--red)';}
+  if(fz){
+    if(inside){
+      fz.style.display='block';
+      fz.style.background='var(--grn-g)';
+      fz.style.border='1px solid rgba(0,229,160,.3)';
+      fz.style.color='var(--grn)';
+      fz.textContent='✅ En zona · '+fmtDist(d)+' del punto';
+    } else {
+      fz.style.display='block';
+      fz.style.background='var(--red-g)';
+      fz.style.border='1px solid rgba(255,68,102,.3)';
+      fz.style.color='var(--red)';
+      fz.textContent='🔒 Fuera de zona · '+fmtDist(d)+' · Acércate al punto para marcar';
+    }
+  }
+  // Bloquear/desbloquear botones de paso 2 y 3 según geocerca
+  if(pid==='2'){
+    const btn=document.querySelector('#card-2 .btn-green');
+    if(btn){
+      btn.disabled=!inside;
+      btn.style.opacity=inside?'1':'0.4';
+      btn.title=inside?'':'Debes estar en la zona de Mamás';
+    }
+  }
+  if(pid==='3'){
+    const btn=document.querySelector('#card-3 .btn-amber');
+    if(btn){
+      btn.disabled=!inside;
+      btn.style.opacity=inside?'1':'0.4';
+      btn.title=inside?'':'Debes estar en la zona de destino';
+    }
+  }
 }
 function updateProxPt2(){updateProxPt('2','','MAMAS');}
 function updateProxPt3(){if(LV) updateProxPt('3','',LV.dest);}
@@ -1015,9 +1047,16 @@ function registrarSalida(){
   $('dest-display').textContent=dest;
   $('dest-display').style.color=dest==='APLAO'?'var(--amb)':'var(--blu)';
   $('card-2').classList.remove('disabled');
+  $('cd-mamas').classList.add('show');   // ← mostrar countdown Mamás
+  $('prox-2').style.display='block';     // ← mostrar barra proximidad
   $('inc-section').style.display='block';
   setStep(2);
   updateRouteBar(origen);
+  // Reset auto locks for fresh trip
+  autoMamasLock=false; cancelMamas=false;
+  autoDestLock=false;  cancelDest=false;
+  if(autoMamasTO){clearTimeout(autoMamasTO);autoMamasTO=null;}
+  if(autoDestTO){clearTimeout(autoDestTO);autoDestTO=null;}
   startCountdown();
 }
 
@@ -1027,6 +1066,12 @@ function registrarSalida(){
 function registrarMamas(){
   if(!LV){setAlert('alert-2','Sin viaje activo','err');return;}
   if(LV.mamasHora){setAlert('alert-2','Mamás ya registrado: '+LV.mamasHora,'warn');return;}
+  // Bloquear si fuera de geocerca (GPS disponible y fuera de zona)
+  if(gpsPos && !inZone('MAMAS')){
+    const d=distTo('MAMAS');
+    setAlert('alert-2',`🔒 Debes estar en la zona de Mamás · Faltan ${fmtDist(d)}`,'err');
+    return;
+  }
 
   // Stop auto immediately
   stopAutoMamas();
@@ -1113,6 +1158,9 @@ function registrarLlegada(){
   stopCountdown();
   setStep(1);
   $('card-2').classList.add('disabled');$('card-2').style.opacity='';
+  $('cd-mamas').classList.remove('show');
+  $('prox-2').style.display='none';
+  $('fz-1').style.display='none';$('fz-2').style.display='none';$('fz-3').style.display='none';
   const bd=$('mamas-done-badge');if(bd)bd.remove();
   $('card-3').classList.add('disabled');
   $('inc-section').style.display='none';
@@ -1159,8 +1207,13 @@ function tickCD(){
         if(ef){ef.style.width='100%';ef.style.background='var(--red)';}
       }
     }
-    // Auto-trigger
-    if(gpsPos&&inZone('MAMAS')&&!autoMamasLock) startAutoMamas();
+    // Auto-trigger: en zona GPS O cuando tiempo llegó a 0 y está cerca
+    if(!autoMamasLock){
+      const d=gpsPos?distTo('MAMAS'):null;
+      const r=FD.config.pts.MAMAS?.r||200;
+      const enZonaMamas=d!==null&&d<=r;
+      if(enZonaMamas) startAutoMamas();
+    }
     updateProxPt2();
   } else {
     // Mamás done — countdown to dest
@@ -1289,7 +1342,12 @@ function retomarViaje(){
   $('dest-display').textContent=v.dest;
   $('dest-display').style.color=v.dest==='APLAO'?'var(--amb)':'var(--blu)';
   $('card-2').classList.remove('disabled');
+  $('cd-mamas').classList.add('show');
+  $('prox-2').style.display='block';
   $('inc-section').style.display='block';
+  // Reset locks
+  autoMamasLock=v.mamasHora?true:false;
+  autoDestLock=false; cancelMamas=false; cancelDest=false;
   if(v.mamasHora){
     $('card-2').classList.add('disabled');$('card-2').style.opacity='0.75';
     const b=document.createElement('div');b.className='mamas-done';b.id='mamas-done-badge';
