@@ -522,6 +522,12 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div class="step" id="step-2"></div>
       <div class="step" id="step-3"></div>
     </div>
+    <!-- DEBUG PANEL -->
+    <div id="debug-panel" style="background:#111;border:1px solid #333;border-radius:8px;padding:10px;margin-bottom:10px;font-family:monospace;font-size:11px;color:#0f0;display:none">
+      <div style="color:#ff0;font-weight:bold;margin-bottom:4px">🔧 DEBUG (toca MARCAR EN MAMÁS para ver log)</div>
+      <div id="debug-log" style="white-space:pre-wrap;line-height:1.6"></div>
+      <button onclick="document.getElementById('debug-panel').style.display='none'" style="margin-top:6px;padding:2px 8px;font-size:10px">Cerrar</button>
+    </div>
 
 
 
@@ -590,6 +596,10 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div id="mamas-alert" class="alert"></div>
       <div style="text-align:center;font-size:11px;color:var(--muted);margin-bottom:8px;font-family:var(--fm)">⏱️ Se grabará la hora exacta al tocar</div>
       <button class="btn btn-success" onclick="registrarMamas()">📍 MARCAR EN MAMÁS</button>
+      <button onclick="dbg('--- ESTADO ---'); dbg('LOCAL_VIAJE='+(LOCAL_VIAJE?JSON.stringify(LOCAL_VIAJE).substring(0,100):'NULL')); dbg('_viajeEnCurso='+_viajeEnCurso); document.getElementById('debug-panel').style.display='block';" 
+        style="margin-top:6px;width:100%;padding:6px;background:#333;color:#0f0;border:1px solid #555;border-radius:6px;font-size:11px;font-family:monospace">
+        🔧 VER DEBUG
+      </button>
     </div>
 
     <!-- LLEGADA -->
@@ -1368,10 +1378,29 @@ function registrarSalida(){
 }
 
 // ─── PASO 2: MARCAR MAMÁS ──────────────────────────────
+function dbg(msg) {
+  const p = document.getElementById('debug-panel');
+  const l = document.getElementById('debug-log');
+  if(p && l){ p.style.display='block'; l.textContent += new Date().toLocaleTimeString()+' '+msg+'\n'; }
+  console.log('[DBG]', msg);
+}
+
 function registrarMamas() {
+  dbg('registrarMamas() llamado');
+  dbg('LOCAL_VIAJE = ' + JSON.stringify(LOCAL_VIAJE));
+  dbg('SESSION.unidad = ' + SESSION.unidad);
+  dbg('DATA.viajesActivos keys = ' + Object.keys(DATA.viajesActivos||{}).join(','));
+  
   // Usar LOCAL_VIAJE — no depende de Firebase
-  if (!LOCAL_VIAJE) { showAlert('mamas-alert','Sin viaje activo.','err'); return; }
-  if (LOCAL_VIAJE.mamasHora) { showAlert('mamas-alert','Mamás ya registrado: '+LOCAL_VIAJE.mamasHora,'warn'); return; }
+  if (!LOCAL_VIAJE) { 
+    dbg('ERROR: LOCAL_VIAJE es null/undefined');
+    showAlert('mamas-alert','Sin viaje activo.','err'); return; 
+  }
+  if (LOCAL_VIAJE.mamasHora) { 
+    dbg('WARN: mamasHora ya existe = ' + LOCAL_VIAJE.mamasHora);
+    showAlert('mamas-alert','Mamás ya registrado: '+LOCAL_VIAJE.mamasHora,'warn'); return; 
+  }
+  dbg('Pasó validaciones OK, continuando...');
 
   // Limpiar auto-locks
   if (_autoMamasTimer) { clearInterval(_autoMamasTimer); _autoMamasTimer = null; }
@@ -1397,6 +1426,7 @@ function registrarMamas() {
   // Actualizar LOCAL_VIAJE inmediatamente (fuente de verdad)
   LOCAL_VIAJE = {...LOCAL_VIAJE, mamasHora: hora, tardMamas, mamasEspMin, gpsMamas: gpsSnap, gpsOkMamas: gpsOk};
 
+  dbg('Guardando en Firebase: hora='+hora+' tardMamas='+tardMamas);
   // Sincronizar con Firebase (asíncrono, no bloquea UI)
   fbUpdate('viajesActivos/' + u, {
     mamasHora: hora, gpsMamas: gpsSnap, gpsOkMamas: gpsOk,
@@ -1427,6 +1457,7 @@ function registrarMamas() {
   cardLleg.style.display = 'block';
   document.getElementById('cd-destino').classList.add('show');
   setStep(3);
+  dbg('✅ Paso 3 activado exitosamente');
 }
 
 // ─── PASO 3: REGISTRAR LLEGADA ──────────────────────────
