@@ -89,7 +89,7 @@ body{font-family:var(--fb);background:var(--ink);color:var(--txt);font-size:14px
   flex-shrink:0;z-index:50;position:relative;
 }
 .tb-left{display:flex;align-items:center;gap:10px}
-.tb-logo{font-family:var(--fs);font-size:18px;font-weight:800;letter-spacing:-0.5px;color:var(--txt)}
+.tb-logo{font-family:var(--fs);font-size:13px;font-weight:800;letter-spacing:-0.5px;color:var(--txt)}
 .tb-logo b{color:var(--blu)}
 .tb-pill{background:var(--ink3);border:1px solid var(--wire);border-radius:20px;padding:3px 10px;font-family:var(--fm);font-size:10px;color:var(--txt2)}
 .tb-clock{font-family:var(--fm);font-size:30px;font-weight:500;color:var(--grn);letter-spacing:1px;line-height:1;}
@@ -371,12 +371,17 @@ canvas{width:100%!important;display:block}
           </div>
           <div class="field" style="margin:0">
             <label>Hora salida</label>
-            <input type="time" id="s-hora">
+            <input type="time" id="s-hora" style="font-size:18px;padding:12px;font-family:var(--fm);font-weight:500;color:var(--grn);background:var(--ink3);border:2px solid var(--wire2)">
           </div>
         </div>
         <div class="prox" id="prox-1">
           <div class="prox-label" id="prox-1-lbl">📍 Dist: —</div>
           <div class="prox-track"><div class="prox-fill" id="prox-1-fill" style="width:0%"></div></div>
+        </div>
+        <!-- Frecuencias rápidas -->
+        <div id="frecuencias-chofer" style="margin-bottom:10px;display:none">
+          <div style="font-size:10px;font-weight:600;letter-spacing:2px;color:var(--txt2);margin-bottom:6px;text-transform:uppercase">⚡ Frecuencias del supervisor</div>
+          <div id="frec-btns" style="display:flex;flex-wrap:wrap;gap:6px"></div>
         </div>
         <div class="fuera-zona" id="fz-1">📍 Estás lejos del punto de salida · <strong id="fz-1-dist">—</strong></div>
         <div class="alert" id="alert-1"></div>
@@ -395,7 +400,7 @@ canvas{width:100%!important;display:block}
           <div class="prox-label" id="prox-2-lbl">📍 Dist. a Mamás: —</div>
           <div class="prox-track"><div class="prox-fill" id="prox-2-fill" style="width:0%"></div></div>
         </div>
-        <div class="countdown show" id="cd-mamas">
+        <div class="countdown" id="cd-mamas">
           <div class="cd-lbl">⏱ Tiempo para llegar a Mamás</div>
           <div class="cd-val g" id="cd-mamas-val">--:--</div>
           <div class="cd-bar"><div class="cd-fill" id="cd-mamas-fill" style="width:100%;background:var(--grn)"></div></div>
@@ -546,6 +551,27 @@ canvas{width:100%!important;display:block}
           <div class="card-title">👤 Nombres Choferes</div>
           <div id="choferes-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px"></div>
           <button class="btn btn-ghost" onclick="saveChoferes()">Guardar nombres</button>
+        </div>
+        <div class="card c-blue" id="card-frecuencias">
+          <div class="card-title">🕐 Frecuencias de Salida</div>
+          <p style="font-size:11px;color:var(--txt2);margin-bottom:12px">Define las horas fijas de salida (ej: 06:00, 06:30). Los choferes podrán seleccionarlas o ingresar hora libre.</p>
+          <div id="frec-list" style="margin-bottom:10px"></div>
+          <div class="frow" style="margin-bottom:10px">
+            <div class="field" style="margin:0"><label>Origen</label>
+              <select id="frec-origen" style="background:var(--ink3);border:1px solid var(--wire);border-radius:8px;color:var(--txt);font-family:var(--fm);font-size:13px;padding:9px 10px;width:100%;outline:none">
+                <option value="CORIRE">CORIRE</option>
+                <option value="APLAO">APLAO</option>
+                <option value="AMBOS">AMBOS</option>
+              </select>
+            </div>
+            <div class="field" style="margin:0"><label>Hora</label>
+              <input type="time" id="frec-hora" style="background:var(--ink3);border:1px solid var(--wire);border-radius:8px;color:var(--grn);font-family:var(--fm);font-size:15px;padding:9px 10px;width:100%;outline:none">
+            </div>
+          </div>
+          <div class="field"><label>Etiqueta (opcional)</label>
+            <input id="frec-label" placeholder="ej: Primer servicio" style="background:var(--ink3);border:1px solid var(--wire);border-radius:8px;color:var(--txt);font-family:var(--fm);font-size:13px;padding:9px 10px;width:100%;outline:none">
+          </div>
+          <button class="btn btn-blue btn-sm" onclick="addFrecuencia()" style="width:auto">+ Agregar frecuencia</button>
         </div>
         <div class="card c-red">
           <div class="card-title">🔑 Cambiar Clave Supervisor</div>
@@ -750,7 +776,7 @@ function initFB(cfg){
 function reconfig(){$('s-login').classList.add('hidden');$('s-setup').classList.remove('hidden');}
 
 function subscribeFB(){
-  DB.ref('config').on('value',s=>{if(s.val())FD.config={...FD.config,...s.val()};refreshConfigForms();});
+  DB.ref('config').on('value',s=>{if(s.val())FD.config={...FD.config,...s.val()};refreshConfigForms();renderFrecuenciasAdmin();renderFrecuenciasChofer();});
   DB.ref('viajesActivos').on('value',s=>{FD.active=s.val()||{};renderMonitor();checkRetomar();});
   DB.ref('historialDia').on('value',s=>{FD.hist=s.val()||{};renderHistChofer();renderHistSup();});
   DB.ref('tardanzaAcum').on('value',s=>{FD.acum=s.val()||{};});
@@ -814,12 +840,18 @@ function startApp(){
   } else {
     $('route-bar-wrap').style.display='none';
     renderMonitor();renderDash();
-    $('s-hora') && ($('s-hora').style.display='none');
   }
   renderConfigForms();
   renderReporte();
   updateRouteBar(null);
   const hcf=$('hist-chofer-fecha');if(hcf)hcf.value=today();
+  // Hora salida: mark manual on edit, auto-reset after trip
+  const hf2=$('s-hora');
+  if(hf2){
+    hf2.addEventListener('focus',()=>hf2.dataset.manual='1');
+    hf2.addEventListener('change',()=>hf2.dataset.manual='1');
+    hf2.addEventListener('blur',()=>{ if(!hf2.value) delete hf2.dataset.manual; });
+  }
 }
 function buildTabs(){
   const isSup=SESSION.role==='sup';
@@ -852,7 +884,9 @@ function showSupTab(id){
 function startClock(){
   const tick=()=>{
     const t=now();
-    $('tb-clock').innerHTML=`${t.txt12}<span style='font-size:16px;font-weight:400'>:${String(t.s).padStart(2,'0')}</span> <small style='font-size:10px;color:var(--txt2);display:block;line-height:1;letter-spacing:1px'>${t.ap}</small>`;
+    $('tb-clock').innerHTML=`<span style='font-size:28px;font-weight:500;letter-spacing:1px;font-family:var(--fm);color:var(--grn)'>${t.txt12}:${String(t.s).padStart(2,'0')}</span> <small style='font-size:9px;color:var(--txt2);display:block;line-height:1;letter-spacing:2px;margin-top:1px'>${t.ap}</small>`;
+    // Auto-fill hora only if not manually edited
+    const hf=$('s-hora'); if(hf&&!hf.dataset.manual&&!LV&&!tripActive) hf.value=t.txt;
   };
   tick();setInterval(tick,1000);
 }
@@ -937,6 +971,7 @@ function onOrigenChange(){
   const o=$('s-origen').value;
   updateRouteBar(o);
   updateProxPt('1','s-origen',o);
+  renderFrecuenciasChofer();
 }
 function onOrigenManual(){
   // User changed manually — hide GPS hint
@@ -1655,6 +1690,59 @@ function renderHistChoferExt(fecha){
       <td>${(v.tardTotal||0)>0?`<span class="badge red">+${v.tardTotal}min</span>`:'<span class="badge grn">0</span>'}</td>
       <td class="mono">${(v.tardTotal||0)>0?'S/'+v.tardTotal:'—'}</td>
     </tr>`).join('');
+}
+
+// ════════════════════════════════════════════════════
+// FRECUENCIAS DE SALIDA
+// ════════════════════════════════════════════════════
+function addFrecuencia(){
+  const h=$('frec-hora').value, o=$('frec-origen').value, lbl=$('frec-label').value.trim();
+  if(!h){alert('Ingresa una hora');return;}
+  const frecs=FD.config.frecuencias||[];
+  frecs.push({hora:h,origen:o,label:lbl||h});
+  fbUpd('config',{frecuencias:frecs});
+  $('frec-hora').value='';$('frec-label').value='';
+}
+function delFrecuencia(i){
+  const frecs=[...(FD.config.frecuencias||[])];
+  frecs.splice(i,1);
+  fbUpd('config',{frecuencias:frecs});
+}
+function renderFrecuenciasAdmin(){
+  const el=$('frec-list');if(!el)return;
+  const frecs=FD.config.frecuencias||[];
+  if(!frecs.length){el.innerHTML='<p style="font-size:11px;color:var(--txt2)">Sin frecuencias configuradas</p>';return;}
+  el.innerHTML=frecs.map((f,i)=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;background:var(--ink3);border:1px solid var(--wire);border-radius:7px;padding:8px 12px;margin-bottom:6px">
+      <div>
+        <span style="font-family:var(--fm);font-size:15px;color:var(--grn)">${f.hora}</span>
+        <span class="badge ${f.origen==='CORIRE'?'blu':f.origen==='APLAO'?'amb':'grn'}" style="margin-left:8px">${f.origen}</span>
+        ${f.label&&f.label!==f.hora?`<span style="font-size:11px;color:var(--txt2);margin-left:6px">${f.label}</span>`:''}
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="delFrecuencia(${i})" style="padding:4px 8px;font-size:12px">✕</button>
+    </div>`).join('');
+}
+function renderFrecuenciasChofer(){
+  const wrap=$('frecuencias-chofer'),btns=$('frec-btns');
+  if(!wrap||!btns) return;
+  const frecs=(FD.config.frecuencias||[]).filter(f=>{
+    const o=$('s-origen').value;
+    return !o || f.origen==='AMBOS' || f.origen===o;
+  });
+  if(!frecs.length){wrap.style.display='none';return;}
+  wrap.style.display='block';
+  btns.innerHTML=frecs.map(f=>`
+    <button onclick="selectFrecuencia('${f.hora}')" 
+      style="background:var(--ink3);border:1px solid var(--wire2);border-radius:8px;padding:8px 14px;color:var(--grn);font-family:var(--fm);font-size:14px;cursor:pointer;transition:.15s"
+      onmouseover="this.style.borderColor='var(--grn)'" onmouseout="this.style.borderColor='var(--wire2)'">
+      ${f.hora}${f.label&&f.label!==f.hora?`<span style='font-size:9px;color:var(--txt2);display:block;margin-top:1px'>${f.label}</span>`:''}
+    </button>`).join('');
+}
+function selectFrecuencia(hora){
+  const hf=$('s-hora');
+  if(hf){hf.value=hora;hf.dataset.manual='1';}
+  // Flash effect
+  if(hf){hf.style.borderColor='var(--grn)';setTimeout(()=>hf.style.borderColor='var(--wire2)',600);}
 }
 
 // ════════════════════════════════════════════════════
