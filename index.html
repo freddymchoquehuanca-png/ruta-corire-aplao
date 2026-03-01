@@ -589,9 +589,8 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <button class="btn btn-danger" onclick="cancelarAutoMamas()" style="max-width:200px;margin:0 auto">✋ CANCELAR</button>
       </div>
 
-      <div class="geo-lock" id="geo-lock-mamas">
-        <h3>📍 FUERA DE ZONA MAMÁS</h3>
-        <p>Acércate al punto Mamás. Dist: <strong id="dist-mamas-txt">—</strong></p>
+      <div id="geo-lock-mamas" style="display:none;background:rgba(255,71,87,.15);border:1px solid rgba(255,71,87,.3);border-radius:9px;padding:10px;text-align:center;margin-bottom:10px;pointer-events:none">
+        <p style="margin:0;font-size:12px;color:var(--red)">📍 Fuera de zona Mamás · Dist: <strong id="dist-mamas-txt">—</strong> · Igual puedes marcar manualmente</p>
       </div>
       <div id="mamas-alert" class="alert"></div>
       <div style="text-align:center;font-size:11px;color:var(--muted);margin-bottom:8px;font-family:var(--fm)">⏱️ Se grabará la hora exacta al tocar</div>
@@ -640,9 +639,8 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <button class="btn btn-danger" onclick="cancelarAutoLlegada()" style="max-width:200px;margin:0 auto">✋ CANCELAR</button>
       </div>
 
-      <div class="geo-lock" id="geo-lock-llegada">
-        <h3>📍 FUERA DEL DESTINO</h3>
-        <p>Debes estar en el destino. Dist: <strong id="dist-llegada-txt">—</strong></p>
+      <div id="geo-lock-llegada" style="display:none;background:rgba(255,71,87,.15);border:1px solid rgba(255,71,87,.3);border-radius:9px;padding:10px;text-align:center;margin-bottom:10px;pointer-events:none">
+        <p style="margin:0;font-size:12px;color:var(--red)">📍 Fuera de zona destino · Dist: <strong id="dist-llegada-txt">—</strong> · Igual puedes registrar manualmente</p>
       </div>
       <div id="llegada-alert" class="alert"></div>
       <div style="text-align:center;font-size:11px;color:var(--muted);margin-bottom:8px;font-family:var(--fm)">⏱️ Se grabará la hora exacta al tocar</div>
@@ -1291,7 +1289,7 @@ function actualizarProximidad(){
     document.getElementById('prox-dist-mamas').textContent=d+'m (zona: '+r+'m)';
     document.getElementById('prox-fill-mamas').style.cssText=`width:${pct}%;background:${d<=r?'var(--mamas)':'var(--red)'}`;
     document.getElementById('dist-mamas-txt').textContent=d+'m';
-    document.getElementById('geo-lock-mamas').classList.toggle('show',d>r);
+    document.getElementById('geo-lock-mamas').style.display = d>r ? 'block' : 'none';
   }
   const destino=document.getElementById('l-destino').value;
   if(destino&&gpsPos){
@@ -1302,7 +1300,7 @@ function actualizarProximidad(){
     document.getElementById('prox-dist-llegada').textContent=d+'m (zona: '+r+'m)';
     document.getElementById('prox-fill-llegada').style.cssText=`width:${pct}%;background:${d<=r?'var(--mamas)':'var(--red)'}`;
     document.getElementById('dist-llegada-txt').textContent=d+'m';
-    document.getElementById('geo-lock-llegada').classList.toggle('show',d>r);
+    document.getElementById('geo-lock-llegada').style.display = d>r ? 'block' : 'none';
   }
 }
 setInterval(()=>{ if(gpsPos)actualizarProximidad(); },5000);
@@ -1425,6 +1423,7 @@ function registrarMamas() {
 
   // Actualizar LOCAL_VIAJE inmediatamente (fuente de verdad)
   LOCAL_VIAJE = {...LOCAL_VIAJE, mamasHora: hora, tardMamas, mamasEspMin, gpsMamas: gpsSnap, gpsOkMamas: gpsOk};
+  window._autoMamasLock = true; // evitar re-disparo — Mamás ya registrado
 
   dbg('Guardando en Firebase: hora='+hora+' tardMamas='+tardMamas);
   // Sincronizar con Firebase (asíncrono, no bloquea UI)
@@ -1442,6 +1441,28 @@ function registrarMamas() {
       : `✅ Mamás a tiempo · Hora: ${hora}`,
     tardMamas > 0 ? 'warn' : 'ok');
 
+  // Detener completamente el auto-mamas
+  if (_autoMamasTimer) { clearInterval(_autoMamasTimer); _autoMamasTimer = null; }
+  window._autoMamasLock = true;
+  window._cancelMamas = true;
+  const cancelBox = document.getElementById('cancel-mamas-box');
+  if (cancelBox) cancelBox.style.display = 'none';
+
+  // Colapsar card-mamas a modo "completado" — solo muestra la hora
+  const cardMamas = document.getElementById('card-mamas');
+  cardMamas.style.opacity = '0.7';
+  cardMamas.style.pointerEvents = 'none';
+  // Ocultar elementos internos innecesarios del paso 2
+  ['prox-mamas-wrap','cd-mamas','geo-lock-mamas','mamas-alert'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  // Mostrar resumen de Mamás
+  const mamasDone = document.createElement('div');
+  mamasDone.style.cssText = 'text-align:center;padding:8px;color:var(--mamas);font-family:var(--fm);font-size:14px;font-weight:700';
+  mamasDone.textContent = '✅ MAMÁS: ' + hora;
+  cardMamas.appendChild(mamasDone);
+
   // Habilitar Paso 3
   const destino = LOCAL_VIAJE.destino;
   const dd = document.getElementById('destino-display');
@@ -1457,6 +1478,9 @@ function registrarMamas() {
   cardLleg.style.display = 'block';
   document.getElementById('cd-destino').classList.add('show');
   setStep(3);
+
+  // Scroll al paso 3
+  setTimeout(() => cardLleg.scrollIntoView({behavior:'smooth', block:'start'}), 300);
   dbg('✅ Paso 3 activado exitosamente');
 }
 
@@ -1504,6 +1528,7 @@ function registrarLlegada() {
   // Limpiar LOCAL_VIAJE ANTES de guardar en Firebase
   LOCAL_VIAJE = null;
   _viajeEnCurso = false;
+  window._autoLlegadaLock = true; // evitar re-disparo
 
   // Guardar en Firebase
   fbRemove('viajesActivos/' + u);
@@ -1523,14 +1548,23 @@ function registrarLlegada() {
       : `✅ A tiempo en ${destino} · Llegada: ${hora}`,
     tardMin > 0 ? 'warn' : 'ok');
 
-  // Reset UI
+  // Reset UI completo para el próximo viaje
   resetAutoLocks();
   ocultarCountdowns();
   setStep(1);
+  // card-salida: habilitado
   document.getElementById('card-salida').style.opacity = '1';
   document.getElementById('card-salida').style.pointerEvents = 'auto';
-  document.getElementById('card-mamas').style.opacity = '0.4';
-  document.getElementById('card-mamas').style.pointerEvents = 'none';
+  // card-mamas: reset completo (restaurar elementos ocultos)
+  const cmR = document.getElementById('card-mamas');
+  cmR.style.opacity = '0.4';
+  cmR.style.pointerEvents = 'none';
+  ['prox-mamas-wrap','cd-mamas','geo-lock-mamas'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.style.display = '';
+  });
+  // Eliminar resumen de Mamás si existe
+  cmR.querySelectorAll('div[style*="MAMÁS"]').forEach(el => el.remove());
+  // card-llegada: deshabilitado
   document.getElementById('card-llegada').style.opacity = '0.4';
   document.getElementById('card-llegada').style.pointerEvents = 'none';
   document.getElementById('incidente-section').style.display = 'none';
@@ -2523,9 +2557,10 @@ function tickCountdown() {
     if (gpsPos && enZona('MAMAS') && !window._autoMamasLock) iniciarAutoMamas();
 
   } else {
-    // Ya pasó por Mamás — mostrar hora
+    // Ya pasó por Mamás — mostrar hora y bloquear auto definitivamente
     if(elMVal){elMVal.textContent='✅ '+v.mamasHora; elMVal.className='cd-timer green';}
     if(elMFill){elMFill.style.width='100%'; elMFill.style.background='var(--mamas)';}
+    window._autoMamasLock = true; // Mamás ya registrado, nunca más auto
     // Asegurarse que cd-destino esté visible
     const cdD = document.getElementById('cd-destino');
     if(cdD) cdD.classList.add('show');
