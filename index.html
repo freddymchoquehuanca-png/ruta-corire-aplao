@@ -991,6 +991,7 @@ let DATA = {
 let OFFLINE_QUEUE = JSON.parse(localStorage.getItem('offline_queue')||'[]');
 let isOnline = true;
 let _viajeEnCurso = false; // true cuando el chofer ya está en un viaje activo en esta sesión
+let LOCAL_VIAJE = null;  // Estado LOCAL del viaje activo — NO se sobreescribe con Firebase
 
 // ═══════════════════════════════════════════════════════
 //  FIREBASE SETUP
@@ -1239,7 +1240,7 @@ function iniciarGPS(){
       setBanner('ok',`GPS ±${Math.round(pos.coords.accuracy)}m · Cerca de ${cerca.punto} (${Math.round(cerca.dist)}m)`);
       // Auto-seleccionar origen si no hay viaje activo y no hay origen elegido
       const sel=document.getElementById('s-origen');
-      const tieneViaje=SESSION.unidad&&DATA.viajesActivos[SESSION.unidad];
+      const tieneViaje=LOCAL_VIAJE||_viajeEnCurso;
       if(sel&&!sel.value&&!tieneViaje&&SESSION.role==='chofer'){
         if(cerca.punto==='CORIRE'&&cerca.dist<=600){ sel.value='CORIRE'; updateRouteDiagram('CORIRE'); }
         else if(cerca.punto==='APLAO'&&cerca.dist<=600){ sel.value='APLAO'; updateRouteDiagram('APLAO'); }
@@ -1347,6 +1348,7 @@ function registrarSalida(){
   const esperadaMin=salidaMin+espMin;
   const viaje={ unidad:u, origen, salida:hora, salidaMin, destino, esperadaMin, mamasHora:null, gpsOk, dist, gpsSalida:gpsSnap, id:Date.now(), fecha:hoy() };
 
+  LOCAL_VIAJE = viaje; // guardar localmente ANTES de Firebase
   fbSet('viajesActivos/'+u, viaje);
 
   if(!gpsOk&&gpsPos){
@@ -1367,21 +1369,19 @@ function registrarSalida(){
 
 // ─── PASO 2: MARCAR MAMÁS ──────────────────────────────
 function registrarMamas() {
-  const u = SESSION.unidad;
+  // Usar LOCAL_VIAJE — no depende de Firebase
+  if (!LOCAL_VIAJE) { showAlert('mamas-alert','Sin viaje activo.','err'); return; }
+  if (LOCAL_VIAJE.mamasHora) { showAlert('mamas-alert','Mamás ya registrado: '+LOCAL_VIAJE.mamasHora,'warn'); return; }
 
-  // 1. Leer viaje ANTES de cualquier cambio
-  const v = DATA.viajesActivos[u];
-  if (!v) { showAlert('mamas-alert','Sin viaje activo.','err'); return; }
-  if (v.mamasHora) { showAlert('mamas-alert','Mamás ya fue registrado.','warn'); return; }
-
-  // 2. Limpiar auto-locks
+  // Limpiar auto-locks
   if (_autoMamasTimer) { clearInterval(_autoMamasTimer); _autoMamasTimer = null; }
   window._autoMamasLock = false; window._cancelMamas = false;
   const cb = document.getElementById('cancel-mamas-box');
   if (cb) cb.style.display = 'none';
 
-  // 3. Capturar hora y GPS
+  // Capturar hora y GPS
   const hora = ahoraTxt();
+  const u = SESSION.unidad;
   let gpsOk = true, dist = null, gpsSnap = null;
   if (gpsPos) {
     dist = Math.round(distPunto('MAMAS'));
@@ -1389,69 +1389,63 @@ function registrarMamas() {
     gpsSnap = {lat: gpsPos.lat, lon: gpsPos.lon, acc: Math.round(gpsPos.acc)};
   }
 
-  // 4. Calcular tardanza Mamás
-  const mamasEspMin = v.salidaMin + tiempoEsp(v.origen, 'MAMAS');
-  const mamasLlegMin = horaAMinCross(hora, v.salida);
+  // Calcular tardanza Mamás
+  const mamasEspMin = LOCAL_VIAJE.salidaMin + tiempoEsp(LOCAL_VIAJE.origen, 'MAMAS');
+  const mamasLlegMin = horaAMinCross(hora, LOCAL_VIAJE.salida);
   const tardMamas = Math.max(0, mamasLlegMin - mamasEspMin);
 
-  // 5. Guardar en Firebase
+  // Actualizar LOCAL_VIAJE inmediatamente (fuente de verdad)
+  LOCAL_VIAJE = {...LOCAL_VIAJE, mamasHora: hora, tardMamas, mamasEspMin, gpsMamas: gpsSnap, gpsOkMamas: gpsOk};
+
+  // Sincronizar con Firebase (asíncrono, no bloquea UI)
   fbUpdate('viajesActivos/' + u, {
     mamasHora: hora, gpsMamas: gpsSnap, gpsOkMamas: gpsOk,
-    tardMamas: tardMamas, mamasEspMin: mamasEspMin
+    tardMamas, mamasEspMin
   });
   if (!gpsOk && gpsPos)
     fbPush('gpsAlertas', {tipo:'MAMÁS', unidad:u, dist, hora, punto:'MAMAS', fecha:hoy(), ts:Date.now()});
 
-  // 6. Actualizar DATA local inmediatamente (sin esperar Firebase)
-  DATA.viajesActivos[u] = {...v, mamasHora:hora, tardMamas:tardMamas};
-
-  // 7. Mostrar alerta
+  // Mostrar alerta
   showAlert('mamas-alert',
     tardMamas > 0
       ? `⚠️ Mamás +${tardMamas}min tarde · Hora: ${hora}`
       : `✅ Mamás a tiempo · Hora: ${hora}`,
     tardMamas > 0 ? 'warn' : 'ok');
 
-  // 8. Habilitar Paso 3 con destino de v (ya leído)
-  const destino = v.destino;
-  document.getElementById('l-destino').value = destino;
+  // Habilitar Paso 3
+  const destino = LOCAL_VIAJE.destino;
   const dd = document.getElementById('destino-display');
   if (dd) {
     dd.textContent = destino;
     dd.style.color = destino === 'APLAO' ? 'var(--aplao)' : 'var(--corire)';
     dd.style.borderColor = destino === 'APLAO' ? 'var(--aplao)' : 'var(--corire)';
   }
+  document.getElementById('l-destino').value = destino;
   const cardLleg = document.getElementById('card-llegada');
   cardLleg.style.opacity = '1';
   cardLleg.style.pointerEvents = 'auto';
   cardLleg.style.display = 'block';
+  document.getElementById('cd-destino').classList.add('show');
   setStep(3);
-
-  // 9. Mostrar countdown destino
-  const cdDest = document.getElementById('cd-destino');
-  if (cdDest) cdDest.classList.add('show');
 }
 
 // ─── PASO 3: REGISTRAR LLEGADA ──────────────────────────
 function registrarLlegada() {
+  // Usar LOCAL_VIAJE — fuente de verdad local
+  if (!LOCAL_VIAJE) { showAlert('llegada-alert','Sin viaje activo.','err'); return; }
+
   const u = SESSION.unidad;
+  const v = LOCAL_VIAJE; // alias claro
 
-  // 1. Leer viaje fresco de DATA local (puede tener tardMamas ya)
-  const v = DATA.viajesActivos[u];
-  if (!v) { showAlert('llegada-alert','Sin viaje activo. Registra salida primero.','err'); return; }
-
-  // 2. Limpiar auto-locks
+  // Limpiar auto-locks
   if (_autoLlegadaTimer) { clearInterval(_autoLlegadaTimer); _autoLlegadaTimer = null; }
   window._autoLlegadaLock = false; window._cancelLlegada = false;
   const cb = document.getElementById('cancel-llegada-box');
   if (cb) cb.style.display = 'none';
 
-  // 3. Destino desde el viaje (nunca del select)
-  const destino = v.destino;
-  if (!destino) { showAlert('llegada-alert','Error: destino no encontrado.','err'); return; }
-
-  // 4. Capturar hora y GPS
+  // Capturar hora y GPS
   const hora = ahoraTxt();
+  const destino = v.destino;
   let gpsOk = true, dist = null, gpsSnap = null;
   if (gpsPos) {
     dist = Math.round(distPunto(destino));
@@ -1459,7 +1453,7 @@ function registrarLlegada() {
     gpsSnap = {lat: gpsPos.lat, lon: gpsPos.lon, acc: Math.round(gpsPos.acc)};
   }
 
-  // 5. Calcular tardanza total
+  // Calcular tardanza total
   const llegadaMin = horaAMinCross(hora, v.salida);
   const tardLlegada = Math.max(0, llegadaMin - v.esperadaMin);
   const tardMamas = v.tardMamas || 0;
@@ -1468,28 +1462,26 @@ function registrarLlegada() {
   const acumNuevo = acumPrev + tardMin;
   const todoGpsOk = v.gpsOk !== false && v.gpsOkMamas !== false && gpsOk;
 
-  // 6. Construir registro completo
+  // Construir registro completo
   const viajeComp = {
-    ...v,
-    destinoFinal: destino, llegada: hora, llegadaMin,
+    ...v, destinoFinal: destino, llegada: hora, llegadaMin,
     tardanza: tardMin, tardMamas, tardLlegada,
     gpsLlegada: gpsSnap, gpsOkLlegada: gpsOk,
     gpsAlert: !todoGpsOk, completado: Date.now()
   };
 
-  // 7. Guardar en Firebase
+  // Limpiar LOCAL_VIAJE ANTES de guardar en Firebase
+  LOCAL_VIAJE = null;
+  _viajeEnCurso = false;
+
+  // Guardar en Firebase
   fbRemove('viajesActivos/' + u);
   fbPush('historialDia', viajeComp);
   fbSet('tardanzaAcum/' + u, acumNuevo);
   if (!gpsOk && gpsPos)
     fbPush('gpsAlertas', {tipo:'LLEGADA', unidad:u, dist, hora, punto:destino, fecha:hoy(), ts:Date.now()});
 
-  // 8. Limpiar DATA local
-  delete DATA.viajesActivos[u];
-  if (!DATA.historialDia) DATA.historialDia = {};
-  DATA.historialDia['_local_'+Date.now()] = viajeComp;
-
-  // 9. Mostrar resultado
+  // Mostrar resultado
   let parts = [];
   if (tardMamas > 0) parts.push(`Mamás +${tardMamas}min`);
   if (tardLlegada > 0) parts.push(`Llegada +${tardLlegada}min`);
@@ -1500,8 +1492,7 @@ function registrarLlegada() {
       : `✅ A tiempo en ${destino} · Llegada: ${hora}`,
     tardMin > 0 ? 'warn' : 'ok');
 
-  // 10. Reset UI
-  _viajeEnCurso = false;
+  // Reset UI
   resetAutoLocks();
   ocultarCountdowns();
   setStep(1);
@@ -1833,8 +1824,8 @@ function flushOfflineQueue(){if(!OFFLINE_QUEUE.length)return;const q=[...OFFLINE
 // ═══════════════════════════════════════════════════════
 //  INCIDENTES
 // ═══════════════════════════════════════════════════════
-function abrirModalIncidente(){const v=DATA.viajesActivos[SESSION.unidad];const u='U'+String(SESSION.unidad).padStart(2,'0');document.getElementById('modal-inc-sub').textContent=v?`${u} · ${v.origen} → ${v.destino} · Salida ${v.salida}`:u;const ub=document.getElementById('inc-ubic');if(gpsPos&&ub)ub.value=`${gpsPos.lat.toFixed(5)}, ${gpsPos.lon.toFixed(5)}`;else if(ub)ub.value='GPS no disponible';document.getElementById('inc-tipo').value='';document.getElementById('inc-desc').value='';document.getElementById('inc-alert').className='alert';document.getElementById('modal-incidente').classList.add('show');}
-function enviarIncidente(){const tipo=document.getElementById('inc-tipo').value;const desc=document.getElementById('inc-desc').value.trim();if(!tipo){showAlert('inc-alert','Selecciona el tipo de incidente','err');return;}const v=DATA.viajesActivos[SESSION.unidad];const inc={unidad:SESSION.unidad,tipo,desc,hora:ahoraTxt(),fecha:hoy(),gps:gpsPos?{lat:gpsPos.lat,lon:gpsPos.lon}:null,origen:v?.origen||'',destino:v?.destino||'',ts:Date.now()};fbPush('incidentes',inc);beep(880,200,0.4);showAlert('inc-alert','✅ Incidente reportado correctamente','ok');setTimeout(()=>cerrarModal('modal-incidente'),1500);}
+function abrirModalIncidente(){const v=LOCAL_VIAJE||DATA.viajesActivos[SESSION.unidad];const u='U'+String(SESSION.unidad).padStart(2,'0');document.getElementById('modal-inc-sub').textContent=v?`${u} · ${v.origen} → ${v.destino} · Salida ${v.salida}`:u;const ub=document.getElementById('inc-ubic');if(gpsPos&&ub)ub.value=`${gpsPos.lat.toFixed(5)}, ${gpsPos.lon.toFixed(5)}`;else if(ub)ub.value='GPS no disponible';document.getElementById('inc-tipo').value='';document.getElementById('inc-desc').value='';document.getElementById('inc-alert').className='alert';document.getElementById('modal-incidente').classList.add('show');}
+function enviarIncidente(){const tipo=document.getElementById('inc-tipo').value;const desc=document.getElementById('inc-desc').value.trim();if(!tipo){showAlert('inc-alert','Selecciona el tipo de incidente','err');return;}const v=LOCAL_VIAJE||DATA.viajesActivos[SESSION.unidad];const inc={unidad:SESSION.unidad,tipo,desc,hora:ahoraTxt(),fecha:hoy(),gps:gpsPos?{lat:gpsPos.lat,lon:gpsPos.lon}:null,origen:v?.origen||'',destino:v?.destino||'',ts:Date.now()};fbPush('incidentes',inc);beep(880,200,0.4);showAlert('inc-alert','✅ Incidente reportado correctamente','ok');setTimeout(()=>cerrarModal('modal-incidente'),1500);}
 function renderIncidentes(){const el=document.getElementById('incidentes-lista');if(!el)return;const incs=Object.values(DATA.incidentes||{}).filter(i=>i.fecha===hoy());if(!incs.length){el.innerHTML='<span style="color:var(--muted)">Sin incidentes hoy.</span>';return;}el.innerHTML=incs.sort((a,b)=>b.ts-a.ts).map(i=>`<div style="background:var(--yellow-dim);border:1px solid rgba(255,211,42,.25);border-radius:7px;padding:9px 11px;margin-bottom:6px"><div style="display:flex;gap:8px;align-items:center;margin-bottom:3px"><strong style="color:var(--yellow)">U${String(i.unidad).padStart(2,'00')}</strong><span class="mono" style="font-size:10px">${i.hora}</span><span style="background:var(--s3);border-radius:4px;padding:1px 7px;font-size:10px;color:var(--aplao)">${i.tipo}</span></div><div style="font-size:11px;color:var(--muted2)">${i.desc||'Sin descripción'}</div></div>`).join('');}
 
 // ═══════════════════════════════════════════════════════
@@ -2035,6 +2026,8 @@ function exportarPDFTodas() {
 // ═══════════════════════════════════════════════════════
 function checkViajeActivo() {
   if (!SESSION.unidad || SESSION.role !== 'chofer') return;
+  // Si ya hay LOCAL_VIAJE activo en esta sesión, no mostrar banner
+  if (LOCAL_VIAJE && _viajeEnCurso) return;
   const v = DATA.viajesActivos[SESSION.unidad];
   const banner = document.getElementById('retomar-banner');
   const info   = document.getElementById('retomar-info');
@@ -2071,6 +2064,7 @@ function retomarViaje() {
   const v = DATA.viajesActivos[SESSION.unidad];
   if (!v) { checkViajeActivo(); return; }
 
+  LOCAL_VIAJE = {...v}; // copia para no compartir referencia // restaurar estado local desde Firebase
   _viajeEnCurso = true;
   document.getElementById('retomar-banner').classList.remove('show');
 
@@ -2143,6 +2137,7 @@ function cancelarViajePropio() {
     fbPush('viajesAnulados', {...v, motivo:'Cancelado por el chofer', anuladoPor:'CHOFER', anuladoEn:new Date().toISOString()});
     fbRemove('viajesActivos/' + u);
   }
+  LOCAL_VIAJE = null;
   _viajeEnCurso = false;
   document.getElementById('retomar-banner').classList.remove('show');
   const cs = document.getElementById('card-salida');
@@ -2460,8 +2455,8 @@ function ocultarCountdowns() {
 }
 
 function tickCountdown() {
-  // SIEMPRE leer el viaje fresco de DATA — nunca del closure
-  const v = DATA.viajesActivos[SESSION.unidad];
+  // Usar LOCAL_VIAJE — no se sobreescribe con Firebase
+  const v = LOCAL_VIAJE;
   if (!v) return;
 
   const ahora = new Date();
@@ -2535,6 +2530,7 @@ function tickCountdown() {
 // ── AUTO MAMÁS con 3s cancelar + sonido ──
 function iniciarAutoMamas() {
   if (window._autoMamasLock || _autoMamasTimer) return;
+  if (!LOCAL_VIAJE || LOCAL_VIAJE.mamasHora) return; // ya registrado
   window._autoMamasLock = true;
   window._cancelMamas = false;
   beepEntrada();
@@ -2582,10 +2578,9 @@ function cancelarAutoMamas() {
 // ── AUTO LLEGADA con 3s cancelar + sonido ──
 function iniciarAutoLlegada() {
   if (window._autoLlegadaLock || _autoLlegadaTimer) return;
-  const v = DATA.viajesActivos[SESSION.unidad];
-  if (!v) return;
+  if (!LOCAL_VIAJE || !LOCAL_VIAJE.mamasHora) return; // solo si ya pasó Mamás
   const ahoraMin = horaAMin(ahoraTxt());
-  if (ahoraMin < v.esperadaMin - 5) return; // demasiado temprano
+  if (ahoraMin < LOCAL_VIAJE.esperadaMin - 5) return; // demasiado temprano
   window._autoLlegadaLock = true;
   window._cancelLlegada = false;
   beepEntrada();
