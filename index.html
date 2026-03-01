@@ -800,6 +800,15 @@ function startApp(){
   renderConfigForms();
   renderReporte();
   updateRouteBar(null);
+  // Mark hora as manual when user touches it
+  const hf=$('s-hora');
+  if(hf){
+    hf.addEventListener('focus',()=>hf.dataset.manual='1');
+    hf.addEventListener('blur',()=>{
+      // If user clears it, resume auto-sync
+      if(!hf.value) delete hf.dataset.manual;
+    });
+  }
 }
 function buildTabs(){
   const isSup=SESSION.role==='sup';
@@ -831,10 +840,10 @@ function showSupTab(id){
 function startClock(){
   const tick=()=>{
     const t=now();
-    $('tb-clock').innerHTML=`${t.txt12} <small>${t.ap}</small>`;
-    // Keep hora field synced if not in active trip
+    $('tb-clock').innerHTML=`${t.txt12}<span style='font-size:14px;color:var(--txt2);margin-left:2px'>:${String(t.s).padStart(2,'0')}</span> <small>${t.ap}</small>`;
+    // Keep hora field synced only if user hasn't manually set it
     const hf=$('s-hora');
-    if(hf && !LV && !tripActive) hf.value=t.txt;
+    if(hf && !LV && !tripActive && !hf.dataset.manual) hf.value=t.txt;
   };
   tick();setInterval(tick,1000);
 }
@@ -965,6 +974,8 @@ function registrarSalida(){
   // Update UI
   $('dest-display').textContent=dest;
   $('dest-display').style.color=dest==='APLAO'?'var(--amb)':'var(--blu)';
+  // Reset hora field for next trip
+  const hfR=$('s-hora'); if(hfR) delete hfR.dataset.manual;
   $('card-2').classList.remove('disabled');
   $('cd-mamas').classList.add('show');
   $('prox-2').style.display='block';
