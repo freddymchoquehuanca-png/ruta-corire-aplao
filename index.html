@@ -365,13 +365,14 @@ canvas{width:100%!important;display:block}
             <label>Origen</label>
             <select id="s-origen" onchange="onOrigenChange()">
               <option value="">— Selecciona —</option>
-              <option value="CORIRE">CORIRE</option>
-              <option value="APLAO">APLAO</option>
+              <option value="CORIRE">📍 CORIRE</option>
+              <option value="APLAO">📍 APLAO</option>
             </select>
+            <div id="gps-origen-hint" style="font-size:10px;color:var(--grn);font-family:var(--fm);margin-top:4px;display:none">✅ Auto-seleccionado por GPS</div>
           </div>
           <div class="field" style="margin:0">
             <label>Hora salida</label>
-            <input type="time" id="s-hora">
+            <input type="time" id="s-hora" style="font-size:16px">
           </div>
         </div>
         <div class="prox" id="prox-1">
@@ -795,7 +796,6 @@ function startApp(){
   } else {
     $('route-bar-wrap').style.display='none';
     renderMonitor();renderDash();
-    $('s-hora') && ($('s-hora').style.display='none');
   }
   renderConfigForms();
   renderReporte();
@@ -832,6 +832,9 @@ function startClock(){
   const tick=()=>{
     const t=now();
     $('tb-clock').innerHTML=`${t.txt12} <small>${t.ap}</small>`;
+    // Keep hora field synced if not in active trip
+    const hf=$('s-hora');
+    if(hf && !LV && !tripActive) hf.value=t.txt;
   };
   tick();setInterval(tick,1000);
 }
@@ -847,12 +850,16 @@ function startGPS(){
     const acc=Math.round(pos.coords.accuracy);
     setGPSBar('ok',`GPS ±${acc}m · ${gpsPos.lat.toFixed(5)}, ${gpsPos.lon.toFixed(5)}`);
     updateProx();
-    // Auto-select origin
+    // Auto-select origin by GPS zone
     if(!LV && !tripActive){
       const sel=$('s-origen');
-      if(!sel.value){
-        if(inZone('CORIRE')){sel.value='CORIRE';onOrigenChange();}
-        else if(inZone('APLAO')){sel.value='APLAO';onOrigenChange();}
+      const prevVal=sel.value;
+      if(inZone('CORIRE')){
+        sel.value='CORIRE';
+        if(prevVal!=='CORIRE') onOrigenChange();
+      } else if(inZone('APLAO')){
+        sel.value='APLAO';
+        if(prevVal!=='APLAO') onOrigenChange();
       }
     }
   },err=>{
@@ -920,11 +927,22 @@ function onOrigenChange(){
   updateRouteBar(o);
   updateProxPt('1','s-origen',o);
 }
+function setOrigenGPS(pt){
+  const sel=$('s-origen');
+  const hint=$('gps-origen-hint');
+  if(sel && sel.value !== pt){
+    sel.value=pt;
+    onOrigenChange();
+    if(hint) hint.style.display='block';
+  } else if(sel && sel.value === pt){
+    if(hint) hint.style.display='block';
+  }
+}
 function registrarSalida(){
   const origen=$('s-origen').value;
   const horaInput=$('s-hora').value;
   if(!origen){setAlert('alert-1','Selecciona origen','err');return;}
-  const hora=horaInput||now().txt;
+  const hora=horaInput; if(!hora){setAlert('alert-1','Ingresa la hora de salida','err');return;}
   const u=SESSION.unit;
   const salidaMin=parseTxt(hora);
   const dest=origen==='CORIRE'?'APLAO':'CORIRE';
