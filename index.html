@@ -2596,43 +2596,45 @@ function tickCountdown() {
 // ── AUTO MAMÁS con 3s cancelar + sonido ──
 function iniciarAutoMamas() {
   if (window._autoMamasLock || _autoMamasTimer) return;
-  if (!LOCAL_VIAJE || LOCAL_VIAJE.mamasHora) return; // ya registrado
+  if (!LOCAL_VIAJE || LOCAL_VIAJE.mamasHora) return;
   window._autoMamasLock = true;
   window._cancelMamas = false;
   beepEntrada();
-  let cnt = 3;
   const box = document.getElementById('cancel-mamas-box');
   const countEl = document.getElementById('cancel-mamas-count');
   if(box) box.style.display='block';
-  if(countEl) countEl.textContent = cnt;
 
-  _autoMamasTimer = setInterval(() => {
-    if (window._cancelMamas) {
-      clearInterval(_autoMamasTimer); _autoMamasTimer=null;
-      window._autoMamasLock=false;
+  function tick(n) {
+    if (window._cancelMamas || !LOCAL_VIAJE || LOCAL_VIAJE.mamasHora) {
+      // Cancelado o ya registrado — limpiar
+      if(_autoMamasTimer){clearTimeout(_autoMamasTimer);_autoMamasTimer=null;}
+      window._autoMamasLock = false;
       if(box) box.style.display='none';
       return;
     }
-    cnt--;
-    if(countEl) countEl.textContent=cnt;
-    beep(660,100,0.3);
-    if (cnt <= 0) {
-      clearInterval(_autoMamasTimer); _autoMamasTimer=null;
+    if(countEl) countEl.textContent = n;
+    if (n <= 0) {
+      _autoMamasTimer = null;
       if(box) box.style.display='none';
-      if (!window._cancelMamas) registrarMamas();
+      registrarMamas(); // UNA sola llamada
+      return;
     }
-  }, 1000);
+    beep(660,100,0.3);
+    _autoMamasTimer = setTimeout(() => tick(n-1), 1000);
+  }
+  tick(3);
 }
 
 function cancelarAutoMamas() {
-  window._cancelMamas=true;
-  window._autoMamasLock=true; // mantener lock 15s para evitar re-disparo inmediato
-  if(_autoMamasTimer){clearInterval(_autoMamasTimer);_autoMamasTimer=null;}
+  window._cancelMamas = true;
+  window._autoMamasLock = true;
+  if(_autoMamasTimer){clearTimeout(_autoMamasTimer);_autoMamasTimer=null;}
   const box=document.getElementById('cancel-mamas-box');
   if(box) box.style.display='none';
   beep(440,300,0.3);
+  // Liberar lock tras 15s para permitir nuevo intento manual
   setTimeout(()=>{
-    if(SESSION.unidad&&!DATA.viajesActivos[SESSION.unidad]?.mamasHora) {
+    if(LOCAL_VIAJE && !LOCAL_VIAJE.mamasHora) {
       window._autoMamasLock=false;
       window._cancelMamas=false;
     }
@@ -2644,46 +2646,45 @@ function cancelarAutoMamas() {
 // ── AUTO LLEGADA con 3s cancelar + sonido ──
 function iniciarAutoLlegada() {
   if (window._autoLlegadaLock || _autoLlegadaTimer) return;
-  if (!LOCAL_VIAJE || !LOCAL_VIAJE.mamasHora) return; // solo si ya pasó Mamás
+  if (!LOCAL_VIAJE || !LOCAL_VIAJE.mamasHora) return;
   const ahoraMin = horaAMin(ahoraTxt());
-  if (ahoraMin < LOCAL_VIAJE.esperadaMin - 5) return; // demasiado temprano
+  if (ahoraMin < LOCAL_VIAJE.esperadaMin - 5) return;
   window._autoLlegadaLock = true;
   window._cancelLlegada = false;
   beepEntrada();
-  let cnt = 3;
   const box = document.getElementById('cancel-llegada-box');
   const countEl = document.getElementById('cancel-llegada-count');
   if(box) box.style.display='block';
-  if(countEl) countEl.textContent=cnt;
 
-  _autoLlegadaTimer = setInterval(()=>{
-    if (window._cancelLlegada) {
-      clearInterval(_autoLlegadaTimer); _autoLlegadaTimer=null;
-      window._autoLlegadaLock=false;
+  function tick(n) {
+    if (window._cancelLlegada || !LOCAL_VIAJE) {
+      if(_autoLlegadaTimer){clearTimeout(_autoLlegadaTimer);_autoLlegadaTimer=null;}
+      window._autoLlegadaLock = false;
       if(box) box.style.display='none';
       return;
     }
-    cnt--;
-    if(countEl) countEl.textContent=cnt;
-    beep(660,100,0.3);
-    if (cnt<=0) {
-      clearInterval(_autoLlegadaTimer); _autoLlegadaTimer=null;
+    if(countEl) countEl.textContent = n;
+    if (n <= 0) {
+      _autoLlegadaTimer = null;
       if(box) box.style.display='none';
-      if(!window._cancelLlegada) registrarLlegada(); // llamar directo
+      registrarLlegada(); // UNA sola llamada
+      return;
     }
-  },1000);
+    beep(660,100,0.3);
+    _autoLlegadaTimer = setTimeout(() => tick(n-1), 1000);
+  }
+  tick(3);
 }
 
 function cancelarAutoLlegada() {
-  window._cancelLlegada=true;
-  window._autoLlegadaLock=true; // mantener lock 15s para evitar re-disparo inmediato
-  if(_autoLlegadaTimer){clearInterval(_autoLlegadaTimer);_autoLlegadaTimer=null;}
+  window._cancelLlegada = true;
+  window._autoLlegadaLock = true;
+  if(_autoLlegadaTimer){clearTimeout(_autoLlegadaTimer);_autoLlegadaTimer=null;}
   const box=document.getElementById('cancel-llegada-box');
   if(box) box.style.display='none';
   beep(440,300,0.3);
-  // Liberar lock después de 15s si no se registró manualmente
   setTimeout(()=>{
-    if(!DATA.viajesActivos[SESSION.unidad]?.llegada) {
+    if(LOCAL_VIAJE && !LOCAL_VIAJE.llegada) {
       window._autoLlegadaLock=false;
       window._cancelLlegada=false;
     }
