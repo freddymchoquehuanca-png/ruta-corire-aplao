@@ -21,15 +21,15 @@
   --r:12px;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html,body{height:100%;overflow:hidden;position:fixed;width:100%}
+html,body{height:100%;overflow:hidden;}
 body{font-family:var(--fb);background:var(--ink);color:var(--txt);font-size:14px}
 
 /* ── SCREENS ── */
-.screen{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;overflow-y:auto;-webkit-overflow-scrolling:touch;background:var(--ink)}
+.screen{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;overflow-y:auto;background:var(--ink)}
 .screen.hidden{display:none}
 
 /* ── SETUP ── */
-#s-setup{align-items:center;justify-content:flex-start;padding:40px 20px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+#s-setup{align-items:center;justify-content:flex-start;padding:40px 20px}
 .brand{font-family:var(--fs);font-size:36px;font-weight:800;letter-spacing:-1px;margin-bottom:2px}
 .brand span{color:var(--blu)}
 .brand-sub{font-family:var(--fm);font-size:10px;letter-spacing:4px;color:var(--txt2);margin-bottom:36px}
@@ -79,7 +79,7 @@ body{font-family:var(--fb);background:var(--ink);color:var(--txt);font-size:14px
 .btn:disabled{opacity:.35;pointer-events:none}
 
 /* ── APP SHELL ── */
-#s-app{display:none;flex-direction:column;overflow:hidden;height:100vh;height:100dvh}
+#s-app{display:none;flex-direction:column;overflow:hidden;height:100vh;height:100dvh;}
 #s-app.vis{display:flex}
 
 /* TOPBAR */
@@ -92,7 +92,7 @@ body{font-family:var(--fb);background:var(--ink);color:var(--txt);font-size:14px
 .tb-logo{font-family:var(--fs);font-size:18px;font-weight:800;letter-spacing:-0.5px;color:var(--txt)}
 .tb-logo b{color:var(--blu)}
 .tb-pill{background:var(--ink3);border:1px solid var(--wire);border-radius:20px;padding:3px 10px;font-family:var(--fm);font-size:10px;color:var(--txt2)}
-.tb-clock{font-family:var(--fm);font-size:22px;font-weight:500;color:var(--grn);letter-spacing:1px}
+.tb-clock{font-family:var(--fm);font-size:30px;font-weight:500;color:var(--grn);letter-spacing:1px;line-height:1;}
 .tb-clock small{font-size:10px;color:var(--txt2);margin-left:2px}
 .tb-right{display:flex;align-items:center;gap:8px}
 .conn-dot{width:6px;height:6px;border-radius:50%;background:var(--grn)}
@@ -108,8 +108,8 @@ body{font-family:var(--fb);background:var(--ink);color:var(--txt);font-size:14px
 .tab.active{color:var(--blu);border-color:var(--blu)}
 
 /* CONTENT AREA */
-.content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;min-height:0}
-.panel{display:none;padding:14px 14px 80px;max-width:900px;margin:0 auto}
+.content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;min-height:0;overscroll-behavior:contain;}
+.panel{display:none;padding:14px 14px 100px;max-width:900px;margin:0 auto;}
 .panel.active{display:block}
 
 /* ROUTE BAR */
@@ -365,14 +365,13 @@ canvas{width:100%!important;display:block}
             <label>Origen</label>
             <select id="s-origen" onchange="onOrigenChange()">
               <option value="">— Selecciona —</option>
-              <option value="CORIRE">📍 CORIRE</option>
-              <option value="APLAO">📍 APLAO</option>
+              <option value="CORIRE">CORIRE</option>
+              <option value="APLAO">APLAO</option>
             </select>
-            <div id="gps-origen-hint" style="font-size:10px;color:var(--grn);font-family:var(--fm);margin-top:4px;display:none">✅ Auto-seleccionado por GPS</div>
           </div>
           <div class="field" style="margin:0">
             <label>Hora salida</label>
-            <input type="time" id="s-hora" style="font-size:16px">
+            <input type="time" id="s-hora">
           </div>
         </div>
         <div class="prox" id="prox-1">
@@ -396,7 +395,7 @@ canvas{width:100%!important;display:block}
           <div class="prox-label" id="prox-2-lbl">📍 Dist. a Mamás: —</div>
           <div class="prox-track"><div class="prox-fill" id="prox-2-fill" style="width:0%"></div></div>
         </div>
-        <div class="countdown" id="cd-mamas">
+        <div class="countdown show" id="cd-mamas">
           <div class="cd-lbl">⏱ Tiempo para llegar a Mamás</div>
           <div class="cd-val g" id="cd-mamas-val">--:--</div>
           <div class="cd-bar"><div class="cd-fill" id="cd-mamas-fill" style="width:100%;background:var(--grn)"></div></div>
@@ -465,7 +464,7 @@ canvas{width:100%!important;display:block}
     </div>
 
     <!-- ── SUPERVISOR PANEL ── -->
-    <div class="panel" id="panel-sup" style="padding-bottom:80px">
+    <div class="panel" id="panel-sup">
       <!-- Tabs internos -->
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
         <button class="btn btn-blue btn-sm" onclick="showSupTab('historial')">📅 Historial</button>
@@ -596,6 +595,25 @@ canvas{width:100%!important;display:block}
         <canvas id="chart-hora" height="140"></canvas>
       </div>
     </div>
+  <!-- ── HISTORIAL PANEL ── -->
+    <div class="panel" id="panel-historial">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+        <div style="font-family:var(--fs);font-size:16px;font-weight:700;color:var(--txt)">📋 Mis Viajes</div>
+        <div style="margin-left:auto;display:flex;gap:8px">
+          <input type="date" id="hist-chofer-fecha" style="background:var(--ink3);border:1px solid var(--wire);border-radius:8px;color:var(--txt);font-family:var(--fm);font-size:12px;padding:7px 10px;outline:none">
+          <button class="btn btn-ghost btn-sm" onclick="loadHistChoferFecha()">Ver</button>
+          <button class="btn btn-ghost btn-sm" onclick="exportCSV()">📥 CSV</button>
+        </div>
+      </div>
+      <div class="stats-row" id="hist-stats"></div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Origen</th><th>Salida</th><th>Mamás</th><th>Destino</th><th>Llegada</th><th>Tardanza</th><th>Multa S/</th></tr></thead>
+          <tbody id="hist-tbody-ext"></tbody>
+        </table>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -796,25 +814,18 @@ function startApp(){
   } else {
     $('route-bar-wrap').style.display='none';
     renderMonitor();renderDash();
+    $('s-hora') && ($('s-hora').style.display='none');
   }
   renderConfigForms();
   renderReporte();
   updateRouteBar(null);
-  // Mark hora as manual when user touches it
-  const hf=$('s-hora');
-  if(hf){
-    hf.addEventListener('focus',()=>hf.dataset.manual='1');
-    hf.addEventListener('blur',()=>{
-      // If user clears it, resume auto-sync
-      if(!hf.value) delete hf.dataset.manual;
-    });
-  }
+  const hcf=$('hist-chofer-fecha');if(hcf)hcf.value=today();
 }
 function buildTabs(){
   const isSup=SESSION.role==='sup';
   const t=isSup
     ?[['monitor','🖥 Monitor'],['sup','👮 Supervisor'],['dash','📊 Dashboard']]
-    :[['chofer','🚌 Mis Viajes'],['monitor','🖥 Monitor']];
+    :[['chofer','🚌 Mis Viajes'],['monitor','🖥 Monitor'],['historial','📋 Historial']];
   $('tabs').innerHTML=t.map(([id,lbl],i)=>
     `<div class="tab${i===0?' active':''}" onclick="setTab('${id}',this)">${lbl}</div>`).join('');
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
@@ -828,6 +839,7 @@ function setTab(id,el){
   if(id==='monitor')renderMonitor();
   if(id==='dash')renderDash();
   if(id==='sup'){showSupTab('historial');loadHistFecha();}
+  if(id==='historial'){loadHistChoferFecha();}
 }
 function showSupTab(id){
   document.querySelectorAll('.sup-tab').forEach(t=>t.classList.add('hidden'));
@@ -840,10 +852,7 @@ function showSupTab(id){
 function startClock(){
   const tick=()=>{
     const t=now();
-    $('tb-clock').innerHTML=`${t.txt12}<span style='font-size:14px;color:var(--txt2);margin-left:2px'>:${String(t.s).padStart(2,'0')}</span> <small>${t.ap}</small>`;
-    // Keep hora field synced only if user hasn't manually set it
-    const hf=$('s-hora');
-    if(hf && !LV && !tripActive && !hf.dataset.manual) hf.value=t.txt;
+    $('tb-clock').innerHTML=`${t.txt12}<span style='font-size:16px;font-weight:400'>:${String(t.s).padStart(2,'0')}</span> <small style='font-size:10px;color:var(--txt2);display:block;line-height:1;letter-spacing:1px'>${t.ap}</small>`;
   };
   tick();setInterval(tick,1000);
 }
@@ -861,15 +870,8 @@ function startGPS(){
     updateProx();
     // Auto-select origin by GPS zone
     if(!LV && !tripActive){
-      const sel=$('s-origen');
-      const prevVal=sel.value;
-      if(inZone('CORIRE')){
-        sel.value='CORIRE';
-        if(prevVal!=='CORIRE') onOrigenChange();
-      } else if(inZone('APLAO')){
-        sel.value='APLAO';
-        if(prevVal!=='APLAO') onOrigenChange();
-      }
+      if(inZone('CORIRE')) setOrigenGPS('CORIRE');
+      else if(inZone('APLAO')) setOrigenGPS('APLAO');
     }
   },err=>{
     setGPSBar('err','Error GPS: '+err.message);
@@ -936,22 +938,25 @@ function onOrigenChange(){
   updateRouteBar(o);
   updateProxPt('1','s-origen',o);
 }
+function onOrigenManual(){
+  // User changed manually — hide GPS hint
+  const hint=$('gps-hint');
+  if(hint) hint.style.display='none';
+  onOrigenChange();
+}
 function setOrigenGPS(pt){
-  const sel=$('s-origen');
-  const hint=$('gps-origen-hint');
-  if(sel && sel.value !== pt){
-    sel.value=pt;
-    onOrigenChange();
-    if(hint) hint.style.display='block';
-  } else if(sel && sel.value === pt){
-    if(hint) hint.style.display='block';
-  }
+  const sel=$('s-origen'), hint=$('gps-hint');
+  if(!sel||LV||tripActive) return;
+  if(sel.value===pt) { if(hint&&hint.style.display==='none') hint.style.display='block'; return; }
+  sel.value=pt;
+  onOrigenChange();
+  if(hint) hint.style.display='block';
 }
 function registrarSalida(){
   const origen=$('s-origen').value;
   const horaInput=$('s-hora').value;
   if(!origen){setAlert('alert-1','Selecciona origen','err');return;}
-  const hora=horaInput; if(!hora){setAlert('alert-1','Ingresa la hora de salida','err');return;}
+  const hora=horaInput||now().txt;
   const u=SESSION.unit;
   const salidaMin=parseTxt(hora);
   const dest=origen==='CORIRE'?'APLAO':'CORIRE';
@@ -974,11 +979,7 @@ function registrarSalida(){
   // Update UI
   $('dest-display').textContent=dest;
   $('dest-display').style.color=dest==='APLAO'?'var(--amb)':'var(--blu)';
-  // Reset hora field for next trip
-  const hfR=$('s-hora'); if(hfR) delete hfR.dataset.manual;
   $('card-2').classList.remove('disabled');
-  $('cd-mamas').classList.add('show');
-  $('prox-2').style.display='block';
   $('inc-section').style.display='block';
   setStep(2);
   updateRouteBar(origen);
@@ -1038,7 +1039,6 @@ function registrarMamas(){
 // ════════════════════════════════════════════════════
 function registrarLlegada(){
   if(!LV){setAlert('alert-3','Sin viaje activo','err');return;}
-  if(!LV.mamasHora){setAlert('alert-3','Primero marca en Mamás','err');return;}
 
   stopAutoLlegada();
 
@@ -1619,6 +1619,43 @@ function cerrarMes(){
   repMonth=new Date();renderReporte();
 }
 function exportReportePDF(){alert('Para PDF: usa Ctrl+P / Imprimir desde el navegador');}
+
+// ════════════════════════════════════════════════════
+// HISTORIAL PANEL (chofer)
+// ════════════════════════════════════════════════════
+function loadHistChoferFecha(){
+  const f=$('hist-chofer-fecha')?.value||today();
+  renderHistChoferExt(f);
+}
+function renderHistChoferExt(fecha){
+  if(!SESSION.unit) return;
+  const f=fecha||today();
+  const tbody=$('hist-tbody-ext'); if(!tbody) return;
+  const viajes=Object.values(FD.hist||{}).filter(v=>String(v.unit)===String(SESSION.unit)&&v.fecha===f);
+  // Stats
+  const hs=$('hist-stats');
+  if(hs){
+    const total=viajes.length, tard=viajes.filter(v=>(v.tardTotal||0)>0).length;
+    const multa=viajes.reduce((s,v)=>s+(v.tardTotal||0),0);
+    hs.innerHTML=`
+      <div class="stat"><div class="stat-v">${total}</div><div class="stat-l">Viajes</div></div>
+      <div class="stat"><div class="stat-v" style="color:var(--red)">${tard}</div><div class="stat-l">Con tardanza</div></div>
+      <div class="stat"><div class="stat-v" style="color:var(--amb)">S/${multa}</div><div class="stat-l">Multa total</div></div>
+    `;
+  }
+  if(!viajes.length){tbody.innerHTML='<tr><td colspan="7" style="color:var(--txt2);text-align:center;padding:20px">Sin viajes el '+f+'</td></tr>';return;}
+  viajes.sort((a,b)=>parseTxt(a.salida)-parseTxt(b.salida));
+  tbody.innerHTML=viajes.map(v=>`
+    <tr>
+      <td><span class="badge ${v.origen==='CORIRE'?'blu':'amb'}">${v.origen}</span></td>
+      <td class="mono">${v.salida}</td>
+      <td class="mono">${v.mamasHora||'—'}</td>
+      <td><span class="badge ${(v.destFinal||v.dest)==='APLAO'?'amb':'blu'}">${v.destFinal||v.dest||'—'}</span></td>
+      <td class="mono">${v.llegada||'—'}</td>
+      <td>${(v.tardTotal||0)>0?`<span class="badge red">+${v.tardTotal}min</span>`:'<span class="badge grn">0</span>'}</td>
+      <td class="mono">${(v.tardTotal||0)>0?'S/'+v.tardTotal:'—'}</td>
+    </tr>`).join('');
+}
 
 // ════════════════════════════════════════════════════
 // ALERTS & UTILS
