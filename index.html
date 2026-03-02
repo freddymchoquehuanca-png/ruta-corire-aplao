@@ -280,27 +280,27 @@ canvas{width:100%!important;display:block}
   <div class="login-brand">Fleet<span>Track</span></div>
   <div class="login-sub">CONTROL DE FLOTA</div>
   <div class="login-box">
-    <div class="role-tabs">
-      <div class="rt" id="rt-chofer" onclick="selRole('chofer')">
-        <span class="ico">🚌</span><span class="lbl">Chofer</span>
+    <div id="login-chofer-wrap">
+      <div class="field">
+        <label>Selecciona tu unidad</label>
+        <select id="login-unit" style="font-size:16px;padding:13px 12px">
+          <option value="">— Selecciona tu unidad —</option>
+        </select>
       </div>
-      <div class="rt" id="rt-sup" onclick="selRole('sup')">
-        <span class="ico">👮</span><span class="lbl">Supervisor</span>
-      </div>
+      <div id="login-alert" class="alert"></div>
+      <button class="btn btn-blue" onclick="doLoginChofer()" style="font-size:16px;padding:14px">🚌 Entrar</button>
+      <button class="btn btn-ghost btn-sm" onclick="showSupLogin()" style="margin-top:10px;color:var(--txt2)">👮 Supervisor</button>
     </div>
-    <div id="login-chofer" class="hidden">
-      <div class="field"><label>Unidad</label>
-        <select id="login-unit"><option value="">— Selecciona —</option></select>
+    <div id="login-sup-wrap" class="hidden">
+      <div class="field">
+        <label>Clave supervisor</label>
+        <input type="password" id="login-key" placeholder="••••" style="font-size:16px;padding:13px 12px">
       </div>
+      <div id="login-alert-sup" class="alert"></div>
+      <button class="btn btn-blue" onclick="doLoginSup()" style="font-size:16px;padding:14px">👮 Entrar como Supervisor</button>
+      <button class="btn btn-ghost btn-sm" onclick="showChoferLogin()" style="margin-top:10px">← Volver</button>
     </div>
-    <div id="login-sup" class="hidden">
-      <div class="field"><label>Clave supervisor</label>
-        <input type="password" id="login-key" placeholder="••••">
-      </div>
-    </div>
-    <div id="login-alert" class="alert"></div>
-    <button class="btn btn-blue" onclick="doLogin()">Entrar →</button>
-    <button class="btn btn-ghost btn-sm" onclick="reconfig()" style="margin-top:8px">Reconfigurar Firebase</button>
+    <button class="btn btn-ghost btn-sm" onclick="reconfig()" style="margin-top:10px;opacity:.5">⚙ Reconfigurar Firebase</button>
   </div>
 </div>
 
@@ -794,28 +794,30 @@ function showSync(on){$('sync-bar').style.display=on?'block':'none';}
 // ════════════════════════════════════════════════════
 // LOGIN
 // ════════════════════════════════════════════════════
-let curRole = null;
-function selRole(r){
-  curRole=r;
-  $('rt-chofer').classList.toggle('sel',r==='chofer');
-  $('rt-sup').classList.toggle('sel',r==='sup');
-  $('login-chofer').classList.toggle('hidden',r!=='chofer');
-  $('login-sup').classList.toggle('hidden',r!=='sup');
+function showSupLogin(){
+  $('login-chofer-wrap').classList.add('hidden');
+  $('login-sup-wrap').classList.remove('hidden');
+  setTimeout(()=>$('login-key').focus(),100);
 }
-function doLogin(){
-  if(!curRole){setAlert('login-alert','Selecciona tu rol','err');return;}
-  if(curRole==='chofer'){
-    const u=$('login-unit').value;
-    if(!u){setAlert('login-alert','Selecciona tu unidad','err');return;}
-    SESSION={role:'chofer',unit:u};
-    startApp();
-  } else {
-    const k=$('login-key').value;
-    if(k!==FD.config.supKey&&k!==localStorage.getItem('sup_key')){setAlert('login-alert','Clave incorrecta','err');return;}
-    SESSION={role:'sup',unit:null};
-    startApp();
+function showChoferLogin(){
+  $('login-sup-wrap').classList.add('hidden');
+  $('login-chofer-wrap').classList.remove('hidden');
+}
+function doLoginChofer(){
+  const u=$('login-unit').value;
+  if(!u){setAlert('login-alert','Selecciona tu unidad','err');return;}
+  SESSION={role:'chofer',unit:u};
+  startApp();
+}
+function doLoginSup(){
+  const k=$('login-key').value;
+  if(k!==FD.config.supKey&&k!==localStorage.getItem('sup_key')){
+    setAlert('login-alert-sup','Clave incorrecta','err');return;
   }
+  SESSION={role:'sup',unit:null};
+  startApp();
 }
+function doLogin(){doLoginChofer();}
 function doLogout(){
   stopGPS();stopCountdown();
   LV=null;tripActive=false;SESSION={role:null,unit:null};
@@ -924,7 +926,13 @@ function updateProx(){
 }
 function updateProxPt(pid,selId,pt){
   const pw=$('prox-'+pid), fz=$('fz-'+pid);
-  if(!pt||!gpsPos){if(pw)pw.style.display='none';if(fz)fz.style.display='none';return;}
+  if(!pt||!gpsPos){
+    if(pw)pw.style.display='none';
+    if(fz){fz.style.display='block';fz.style.background='rgba(255,179,64,.08)';fz.style.border='1px solid rgba(255,179,64,.3)';fz.style.color='var(--amb)';fz.textContent='⏳ Esperando señal GPS...';}
+    if(pid==='2'){const btn=document.querySelector('#card-2 .btn-green');if(btn){btn.disabled=true;btn.style.opacity='0.4';}}
+    if(pid==='3'){const btn=document.querySelector('#card-3 .btn-amber');if(btn){btn.disabled=true;btn.style.opacity='0.4';}}
+    return;
+  }
   if(pw) pw.style.display='block';
   const d=distTo(pt), r=FD.config.pts[pt]?.r||200;
   const inside=d<=r;
@@ -1066,12 +1074,8 @@ function registrarSalida(){
 function registrarMamas(){
   if(!LV){setAlert('alert-2','Sin viaje activo','err');return;}
   if(LV.mamasHora){setAlert('alert-2','Mamás ya registrado: '+LV.mamasHora,'warn');return;}
-  // Bloquear si fuera de geocerca (GPS disponible y fuera de zona)
-  if(gpsPos && !inZone('MAMAS')){
-    const d=distTo('MAMAS');
-    setAlert('alert-2',`🔒 Debes estar en la zona de Mamás · Faltan ${fmtDist(d)}`,'err');
-    return;
-  }
+  if(!gpsPos){setAlert('alert-2','🔒 GPS no disponible · Espera señal GPS para marcar','err');return;}
+  if(!inZone('MAMAS')){const d=distTo('MAMAS');setAlert('alert-2',`🔒 Fuera de zona · Faltan ${fmtDist(d)} para llegar a Mamás`,'err');return;}
 
   // Stop auto immediately
   stopAutoMamas();
@@ -1596,9 +1600,35 @@ function sendIncidente(){
   const tipo=$('inc-tipo').value,desc=$('inc-desc').value.trim();
   if(!tipo){setAlert('inc-alert','Selecciona el tipo','err');return;}
   const v=LV||FD.active[SESSION.unit];
-  fbPush('incidentes',{unit:SESSION.unit,tipo,desc,hora:now().txt,fecha:today(),gps:gpsPos?{lat:gpsPos.lat,lon:gpsPos.lon}:null,origen:v?.origen||'',dest:v?.dest||'',ts:Date.now()});
-  setAlert('inc-alert','✅ Incidente reportado','ok');
-  setTimeout(closeIncModal,1500);
+  const u=SESSION.unit;
+  fbPush('incidentes',{unit:u,tipo,desc,hora:now().txt,fecha:today(),gps:gpsPos?{lat:gpsPos.lat,lon:gpsPos.lon}:null,origen:v?.origen||'',dest:v?.dest||'',ts:Date.now()});
+  setAlert('inc-alert','✅ Incidente reportado · El viaje será cancelado','warn');
+  setTimeout(()=>{ closeIncModal(); if(LV||FD.active[u]) terminarViajeIncidente(u,tipo); }, 1800);
+}
+
+function terminarViajeIncidente(u,motivo){
+  const v=LV||FD.active[u];
+  if(!v) return;
+  const hora=now().txt;
+  const comp={...(LV||v),destFinal:'CANCELADO',llegada:hora,tardTotal:0,tardMamas:LV?.tardMamas||0,tardLleg:0,cancelado:true,motivoCancelacion:motivo,done:Date.now()};
+  fbDel('viajesActivos/'+u);
+  fbPush('historialDia',comp);
+  LV=null; tripActive=false;
+  stopCountdown(); stopAutoMamas(); stopAutoLlegada();
+  // Reset UI
+  setStep(1);
+  $('card-2').classList.add('disabled'); $('card-2').style.opacity='';
+  $('cd-mamas').classList.remove('show'); $('prox-2').style.display='none';
+  const bd=$('mamas-done-badge'); if(bd) bd.remove();
+  $('card-3').classList.add('disabled');
+  $('cd-dest').classList.remove('show'); $('prox-3').style.display='none';
+  $('inc-section').style.display='none';
+  $('s-origen').value='';
+  $('dest-display').textContent='— Automático —'; $('dest-display').style.color='';
+  $('fz-1').style.display='none'; $('fz-2').style.display='none'; $('fz-3').style.display='none';
+  const hfR=$('s-hora'); if(hfR) delete hfR.dataset.manual;
+  updateRouteBar(null); renderHistChofer();
+  setAlert('alert-1',`🚨 Viaje cancelado · ${motivo} · Registra nueva salida cuando puedas`,'warn');
 }
 function renderIncidentes(){
   const el=$('inc-lista');if(!el)return;
