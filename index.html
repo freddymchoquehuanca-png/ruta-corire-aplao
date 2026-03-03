@@ -284,7 +284,7 @@ canvas{width:100%!important;display:block}
       <div class="field">
         <label>Selecciona tu unidad</label>
         <select id="login-unit" style="font-size:16px;padding:13px 12px">
-          <option value="">— Selecciona tu unidad —</option>
+          <option value="">⏳ Cargando unidades...</option>
         </select>
       </div>
       <div id="login-alert" class="alert"></div>
@@ -770,13 +770,15 @@ function initFB(cfg){
     subscribeFB();
     $('s-setup').classList.add('hidden');
     $('s-login').classList.remove('hidden');
+    // Poblar selector de unidades en pantalla de login
+    setTimeout(fillLoginUnits, 800);
     setAlert('setup-alert','Conectado ✓','ok');
   }catch(e){setAlert('setup-alert','Error: '+e.message,'err');}
 }
 function reconfig(){$('s-login').classList.add('hidden');$('s-setup').classList.remove('hidden');}
 
 function subscribeFB(){
-  DB.ref('config').on('value',s=>{if(s.val())FD.config={...FD.config,...s.val()};refreshConfigForms();renderFrecuenciasAdmin();renderFrecuenciasChofer();});
+  DB.ref('config').on('value',s=>{if(s.val())FD.config={...FD.config,...s.val()};refreshConfigForms();renderFrecuenciasAdmin();renderFrecuenciasChofer();fillLoginUnits();});
   DB.ref('viajesActivos').on('value',s=>{FD.active=s.val()||{};renderMonitor();checkRetomar();});
   DB.ref('historialDia').on('value',s=>{FD.hist=s.val()||{};renderHistChofer();renderHistSup();});
   DB.ref('tardanzaAcum').on('value',s=>{FD.acum=s.val()||{};});
@@ -1859,6 +1861,15 @@ function buildLoginUnitSelects(){
     const el=$(id);if(!el)return;
     el.innerHTML='<option value="">—</option>'+Array.from({length:N_UNITS},(_,i)=>`<option value="${i+1}">U${String(i+1).padStart(2,'00')} · ${choferName(i+1)}</option>`).join('');
   });
+}
+function fillLoginUnits(){
+  // Llenar login-unit antes de hacer login
+  const el=$('login-unit');if(!el)return;
+  el.innerHTML='<option value="">— Selecciona tu unidad —</option>'+
+    Array.from({length:N_UNITS},(_,i)=>{
+      const n=i+1;
+      return `<option value="${n}">U${String(n).padStart(2,'00')} · ${choferName(n)}</option>`;
+    }).join('');
 }
 
 // ════════════════════════════════════════════════════
