@@ -505,6 +505,18 @@ tr:last-child td { border-bottom:none; }
     <!-- ── CHOFER PANEL ── -->
     <div class="panel panel-bottom" id="panel-chofer">
 
+      <!-- RETOMAR VIAJE CARD (shown when returning mid-trip) -->
+      <div id="retomar-card" style="display:none;margin-bottom:12px">
+        <div style="background:rgba(79,142,255,.08);border:2px solid var(--blu);border-radius:14px;padding:18px">
+          <div style="font-size:15px;font-weight:800;color:var(--blu);margin-bottom:12px">🚌 TIENES UN VIAJE EN CURSO</div>
+          <div id="retomar-info" style="font-size:13px;line-height:1.8;margin-bottom:14px"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <button class="btn btn-blue" onclick="doRetomar()" style="font-size:14px;padding:14px">▶ CONTINUAR VIAJE</button>
+            <button class="btn btn-red" onclick="doCancelarRetomar()" style="font-size:14px;padding:14px">🗑 CANCELAR</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Route bar -->
       <div class="route-bar" id="route-bar">
         <div class="route-pt pending" id="rb-cor">COR</div>
@@ -1159,7 +1171,10 @@ function subscribeFB() {
   DB.ref('viajesActivos').on('value', function(s) {
     FD.active = s.val() || {};
     renderMonitor();
-    checkRetomar();
+    // Only check retomar for chofer if not already in trip
+    if (SESSION.role === 'chofer' && !tripActive) {
+      checkRetomar();
+    }
   });
   DB.ref('historialDia').on('value', function(s) {
     FD.hist = s.val() || {};
@@ -1268,6 +1283,17 @@ function startApp() {
     buildSupFiltros();
     renderReporte();
     renderMonitor();
+  }
+
+  // Activate correct first panel based on role
+  document.querySelectorAll('.panel').forEach(function(p){ p.classList.remove('active'); });
+  document.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('active'); });
+  if (SESSION.role === 'chofer') {
+    var fp = el('panel-chofer'); if (fp) fp.classList.add('active');
+    var ft = el('main-tabs').querySelector('.tab'); if (ft) ft.classList.add('active');
+  } else {
+    var fp2 = el('panel-monitor'); if (fp2) fp2.classList.add('active');
+    var ft2 = el('main-tabs').querySelector('.tab'); if (ft2) ft2.classList.add('active');
   }
 
   startClock();
@@ -1414,7 +1440,8 @@ function registrarSalida() {
   if (!origen) { setAlert('alert-1', 'Selecciona el origen', 'err'); return; }
   if (!horaInput) { setAlert('alert-1', 'Ingresa la hora de salida', 'err'); return; }
 
-  var u = SESSION.unit;
+  var u = parseInt(SESSION.unit);
+  if (!u || isNaN(u)) { setAlert('alert-1', 'Error: unidad no válida. Sal y vuelve a entrar.', 'err'); return; }
   var t = now();
   var hora = horaInput;
   var salidaMin = txtToMin(hora);
@@ -1559,25 +1586,70 @@ function resetTripUI(type, msg) {
 
 function checkRetomar() {
   if (tripActive || !SESSION.unit) return;
-  var v = FD.active[SESSION.unit];
+  var u = parseInt(SESSION.unit);
+  var v = FD.active[u];
   if (!v) return;
-  // Restore from Firebase
+  // Show retomar card instead of auto-restoring
+  var rc = el('retomar-card');
+  var ri = el('retomar-info');
+  if (!rc || !ri) return;
+  var tard = Math.max(0, now().min - (v.esperMin||0));
+  var llegadaColor = tard > 0 ? 'color:var(--red)' : 'color:var(--grn)';
+  var llegadaTxt = tard > 0
+    ? minToTxt(v.esperMin||0) + ' <span style="color:var(--red)">+' + tard + 'min TARDE</span>'
+    : '<span style="color:var(--grn)">' + minToTxt(v.esperMin||0) + '</span>';
+  ri.innerHTML =
+    '<strong>' + v.origen + ' → ' + v.dest + '</strong><br>' +
+    'Salida: <span style="font-family:var(--fm)">' + v.salida + '</span>' +
+    ' · Mamás esperada: <span style="font-family:var(--fm)">' + minToTxt(v.mamasEspMin||0) + '</span><br>' +
+    (v.mamasHora
+      ? '✅ Mamás registrado: <span style="font-family:var(--fm)">' + v.mamasHora + '</span><br>'
+      : '') +
+    'Llegada esperada: ' + llegadaTxt + '<br>' +
+    '<span style="font-size:11px;color:var(--txt2)">Continúa en el Paso ' + (v.mamasHora ? '3' : '2') + ' — ' + (v.mamasHora ? 'Llegada final' : 'Marcar Mamás') + '</span>';
+  rc.style.display = 'block';
+  // Hide step cards while showing retomar
+  el('card-1').className = 'step-card locked';
+  el('card-2').className = 'step-card locked';
+  el('card-3').className = 'step-card locked';
+}
+
+function doRetomar() {
+  var u = parseInt(SESSION.unit);
+  var v = FD.active[u];
+  if (!v) { el('retomar-card').style.display = 'none'; return; }
   LV = Object.assign({}, v);
+  LV.unit = u;
   tripActive = true;
-  el('card-1').className = 'step-card done-step';
+  el('retomar-card').style.display = 'none';
   el('dest-label').textContent = 'Llegada a ' + LV.dest;
+  el('inc-section').style.display = 'block';
   if (LV.mamasHora) {
+    el('card-1').className = 'step-card done-step';
     el('card-2').className = 'step-card done-step';
     el('card-3').className = 'step-card active-step';
     el('cd-dest').classList.add('visible');
   } else {
+    el('card-1').className = 'step-card done-step';
     el('card-2').className = 'step-card active-step';
+    el('card-3').className = 'step-card locked';
     el('cd-mamas').classList.add('visible');
   }
-  el('inc-section').style.display = 'block';
   updateRouteBar();
   startCountdown();
   updateGeoStatus();
+  setAlert('alert-1', '▶ Viaje retomado · ' + LV.origen + '→' + LV.dest + ' · Salida ' + LV.salida, 'ok');
+}
+
+function doCancelarRetomar() {
+  if (!confirm('¿Cancelar y borrar este viaje de Firebase?')) return;
+  var u = parseInt(SESSION.unit);
+  fbDel('viajesActivos/' + u);
+  el('retomar-card').style.display = 'none';
+  el('card-1').className = 'step-card active-step';
+  el('card-2').className = 'step-card locked';
+  el('card-3').className = 'step-card locked';
+  setAlert('alert-1', 'Viaje cancelado · Puedes registrar una nueva salida', 'warn');
 }
 
 // ════════════════════════════════════════════════════
@@ -2671,10 +2743,6 @@ function doResetTotal() {
 // BOOT
 // ════════════════════════════════════════════════════
 window.onload = function() {
-  // Show first panel (default: chofer)
-  var panels = document.querySelectorAll('.panel');
-  if (panels.length) panels[0].classList.add('active');
-
   var hf = el('hist-fecha'); if (hf) hf.value = today();
 
   // Credenciales Firebase pre-configuradas
