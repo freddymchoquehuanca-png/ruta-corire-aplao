@@ -272,7 +272,7 @@ tr:last-child td { border-bottom:none; }
 }
 .countdown-box.visible { display:block; }
 .cd-label { font-size:9px; letter-spacing:2px; color:var(--txt2); margin-bottom:4px; }
-.cd-time { font-family:var(--fm); font-size:32px; font-weight:700; }
+.cd-time { font-family:var(--fm); font-size:38px; font-weight:800; letter-spacing:2px; }
 .cd-time.ok { color:var(--grn); }
 .cd-time.warn { color:var(--amb); }
 .cd-time.late { color:var(--red); }
@@ -524,22 +524,25 @@ tr:last-child td { border-bottom:none; }
           </div>
         </div>
         <div class="step-body">
-          <div class="field">
-            <label>ORIGEN</label>
-            <select id="s-origen" onchange="onOrigenChange()">
-              <option value="">— Selecciona —</option>
-              <option value="CORIRE">📍 CORIRE</option>
-              <option value="APLAO">📍 APLAO</option>
-            </select>
-            <div class="gps-hint" id="gps-hint" style="display:none">✅ Auto-detectado por GPS</div>
+          <!-- Origen + Hora en una fila -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+            <div class="field" style="margin:0">
+              <label>ORIGEN</label>
+              <select id="s-origen" onchange="onOrigenChange()" style="font-size:15px;padding:10px 8px">
+                <option value="">— —</option>
+                <option value="CORIRE">📍 CORIRE</option>
+                <option value="APLAO">📍 APLAO</option>
+              </select>
+              <div class="gps-hint" id="gps-hint" style="display:none">✅ GPS</div>
+            </div>
+            <div class="field" style="margin:0">
+              <label>HORA SALIDA</label>
+              <input type="time" id="s-hora" style="font-size:18px;color:var(--grn);font-family:var(--fm);padding:10px 8px;width:100%;background:var(--ink3);border:1.5px solid var(--wire);border-radius:8px;outline:none" onchange="this.dataset.manual='1'" oninput="this.dataset.manual='1'">
+            </div>
           </div>
-          <div id="freq-section" style="display:none;margin-bottom:12px">
+          <div id="freq-section" style="display:none;margin-bottom:10px">
             <div style="font-size:10px;letter-spacing:1px;color:var(--txt2);margin-bottom:6px">⚡ FRECUENCIAS</div>
             <div class="freq-btns" id="freq-btns"></div>
-          </div>
-          <div class="field">
-            <label>HORA DE SALIDA</label>
-            <input type="time" id="s-hora" style="font-size:20px;color:var(--grn);font-family:var(--fm);padding:12px" onchange="this.dataset.manual='1'" oninput="this.dataset.manual='1'">
           </div>
           <div class="alert" id="alert-1" style="margin-bottom:10px"></div>
           <button class="btn btn-blue" id="btn-salida" onclick="registrarSalida()">🚀 REGISTRAR SALIDA</button>
@@ -559,6 +562,7 @@ tr:last-child td { border-bottom:none; }
           <div class="countdown-box" id="cd-mamas">
             <div class="cd-label">TIEMPO HASTA MAMÁS</div>
             <div class="cd-time" id="cd-mamas-time">--:--</div>
+            <div style="font-size:9px;color:var(--txt2);letter-spacing:1px;margin-top:4px">MIN : SEG</div>
           </div>
           <div class="geo-status geo-wait" id="geo-2">⏳ Esperando GPS...</div>
           <div class="alert" id="alert-2" style="margin-bottom:10px"></div>
@@ -579,6 +583,7 @@ tr:last-child td { border-bottom:none; }
           <div class="countdown-box" id="cd-dest">
             <div class="cd-label">TIEMPO HASTA DESTINO</div>
             <div class="cd-time" id="cd-dest-time">--:--</div>
+            <div style="font-size:9px;color:var(--txt2);letter-spacing:1px;margin-top:4px">MIN : SEG</div>
           </div>
           <div class="geo-status geo-wait" id="geo-3">⏳ Esperando GPS...</div>
           <div class="alert" id="alert-3" style="margin-bottom:10px"></div>
@@ -1573,25 +1578,47 @@ function stopCountdown() {
   if (cdInterval) { clearInterval(cdInterval); cdInterval = null; }
 }
 
+function minSecToTxt(totalSec) {
+  // Format total seconds as MM:SS
+  var sign = totalSec < 0 ? '-' : '';
+  var abs = Math.abs(totalSec);
+  var m = Math.floor(abs / 60);
+  var s = abs % 60;
+  return sign + pad(m) + ':' + pad(s);
+}
+
 function tickCD() {
   if (!LV) { stopCountdown(); return; }
   var t = now();
+  // Total seconds remaining (using real seconds for precision)
+  var nowSec = t.h * 3600 + t.m * 60 + t.s;
+
   if (!LV.mamasHora) {
-    var rest = LV.mamasEspMin - t.min;
-    var txt = minToTxt(Math.abs(rest));
-    var cls = rest > 5 ? 'ok' : rest > 0 ? 'warn' : 'late';
-    var disp = rest >= 0 ? txt : '+' + txt + ' TARDE';
+    var mamasSec = LV.mamasEspMin * 60;
+    var restSec = mamasSec - nowSec;
+    var cls = restSec > 300 ? 'ok' : restSec > 0 ? 'warn' : 'late';
+    var disp;
+    if (restSec >= 0) {
+      disp = minSecToTxt(restSec);
+    } else {
+      disp = '+' + minSecToTxt(Math.abs(restSec)) + ' TARDE';
+    }
     var cdt = el('cd-mamas-time');
-    if (cdt) { cdt.textContent = disp; cdt.className = 'cd-time ' + cls; }
+    if (cdt) { cdt.innerHTML = disp; cdt.className = 'cd-time ' + cls; }
     // Auto-trigger Mamás
     if (GPS && inZone('MAMAS') && !autoMamasLock) startAutoMamas();
   } else {
-    var rest2 = LV.esperMin - t.min;
-    var txt2 = minToTxt(Math.abs(rest2));
-    var cls2 = rest2 > 5 ? 'ok' : rest2 > 0 ? 'warn' : 'late';
-    var disp2 = rest2 >= 0 ? txt2 : '+' + txt2 + ' TARDE';
+    var destSec = LV.esperMin * 60;
+    var restSec2 = destSec - nowSec;
+    var cls2 = restSec2 > 300 ? 'ok' : restSec2 > 0 ? 'warn' : 'late';
+    var disp2;
+    if (restSec2 >= 0) {
+      disp2 = minSecToTxt(restSec2);
+    } else {
+      disp2 = '+' + minSecToTxt(Math.abs(restSec2)) + ' TARDE';
+    }
     var cdt2 = el('cd-dest-time');
-    if (cdt2) { cdt2.textContent = disp2; cdt2.className = 'cd-time ' + cls2; }
+    if (cdt2) { cdt2.innerHTML = disp2; cdt2.className = 'cd-time ' + cls2; }
     // Auto-trigger dest
     if (GPS && inZone(LV.dest) && !autoDestLock) startAutoDest();
   }
