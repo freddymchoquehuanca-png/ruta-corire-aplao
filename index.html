@@ -109,8 +109,8 @@ html,body { height:100%; background:var(--ink); color:var(--txt); font-family:va
   font-family:var(--fm); font-size:10px; color:var(--txt2); flex-shrink:0;
 }
 .tb-clock {
-  font-family:var(--fm); font-size:14px; color:var(--grn);
-  margin-left:auto; flex-shrink:0; text-align:right; line-height:1.2;
+  font-family:var(--fm); font-size:22px; color:var(--grn);
+  margin-left:auto; flex-shrink:0; text-align:right; line-height:1.1; letter-spacing:1px;
 }
 .tb-exit {
   background:var(--red); border:none; border-radius:8px;
@@ -539,7 +539,7 @@ tr:last-child td { border-bottom:none; }
           </div>
           <div class="field">
             <label>HORA DE SALIDA</label>
-            <input type="time" id="s-hora" style="font-size:20px;color:var(--grn);font-family:var(--fm);padding:12px">
+            <input type="time" id="s-hora" style="font-size:20px;color:var(--grn);font-family:var(--fm);padding:12px" onchange="this.dataset.manual='1'" oninput="this.dataset.manual='1'">
           </div>
           <div class="alert" id="alert-1" style="margin-bottom:10px"></div>
           <button class="btn btn-blue" id="btn-salida" onclick="registrarSalida()">🚀 REGISTRAR SALIDA</button>
@@ -830,6 +830,16 @@ tr:last-child td { border-bottom:none; }
             <button class="btn btn-ghost" onclick="changeClave()">Cambiar clave</button>
             <div class="alert" id="clave-alert" style="margin-top:8px"></div>
           </div>
+          <div class="card" style="border-color:rgba(255,68,102,.4);margin-top:4px">
+            <div class="card-title" style="color:var(--red)">🗑 REINICIO TOTAL DEL SISTEMA</div>
+            <p style="font-size:12px;color:var(--txt2);margin-bottom:12px;line-height:1.5">Borra <strong style="color:var(--red)">todos los viajes, multas, incidentes y reportes</strong> de Firebase. No se puede deshacer.</p>
+            <div class="field">
+              <label>CLAVE DE RESET (distinta a la de supervisor)</label>
+              <input type="password" id="reset-key" placeholder="Clave de reinicio">
+            </div>
+            <button class="btn btn-red" onclick="doResetTotal()">🗑 REINICIAR TODO</button>
+            <div style="font-size:10px;color:var(--txt2);margin-top:8px">Clave por defecto: <strong>reset2024</strong> (cámbiala en Firebase: config/resetKey)</div>
+          </div>
         </div>
       </div>
 
@@ -940,7 +950,7 @@ var MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto',
 
 // Default config
 var DEFAULT_CONFIG = {
-  times: {cm:18, ma:12, am:19, mc:13, ca:31, ac:31},
+  times: {cm:18, ma:13, am:19, mc:12, ca:31, ac:31},
   pts: {
     CORIRE: {lat:-16.2163867, lon:-72.4692981, r:300},
     MAMAS:  {lat:-16.1515679, lon:-72.4918005, r:200},
@@ -1035,12 +1045,18 @@ function choferName(u) {
 function tEsp(from, to) {
   var t = FD.config.times;
   var key = '';
-  if (from === 'CORIRE' && to === 'MAMAS') key = 'cm';
-  else if (from === 'MAMAS' && to === 'APLAO') key = 'ma';
-  else if (from === 'APLAO' && to === 'MAMAS') key = 'am';
-  else if (from === 'MAMAS' && to === 'CORIRE') key = 'mc';
-  else if (from === 'CORIRE' && to === 'APLAO') key = 'ca';
-  else if (from === 'APLAO' && to === 'CORIRE') key = 'ac';
+  // Viaje A: CORIRE → APLAO
+  // Tramo 1: CORIRE→MAMAS = cm (18 min)
+  // Tramo 2: MAMAS→APLAO  = ma (13 min)
+  // Viaje B: APLAO → CORIRE
+  // Tramo 1: APLAO→MAMAS   = am (19 min)
+  // Tramo 2: MAMAS→CORIRE  = mc (12 min)
+  if (from === 'CORIRE' && to === 'MAMAS')  key = 'cm'; // 18
+  else if (from === 'MAMAS' && to === 'APLAO')   key = 'ma'; // 13
+  else if (from === 'APLAO' && to === 'MAMAS')   key = 'am'; // 19
+  else if (from === 'MAMAS' && to === 'CORIRE')  key = 'mc'; // 12
+  else if (from === 'CORIRE' && to === 'APLAO')  key = 'ca'; // 18+13=31
+  else if (from === 'APLAO' && to === 'CORIRE')  key = 'ac'; // 19+12=31
   return t[key] || 20;
 }
 
@@ -1235,7 +1251,8 @@ function startApp() {
   if (SESSION.role === 'chofer') {
     tabs.innerHTML =
       '<button class="tab active" onclick="showPanel(\'chofer\',this)">🚌 Viaje</button>' +
-      '<button class="tab" onclick="showPanel(\'historial\',this)">📋 Historial</button>';
+      '<button class="tab" onclick="showPanel(\'historial\',this)">📋 Historial</button>' +
+      '<button class="tab" onclick="showPanel(\'monitor\',this)">🖥 Monitor</button>';
     el('tb-unit').textContent = 'U' + pad(SESSION.unit) + ' · ' + choferName(SESSION.unit);
   } else {
     tabs.innerHTML =
@@ -1281,7 +1298,7 @@ function startClock() {
   function tick() {
     var t = now();
     var clk = el('tb-clock');
-    if (clk) clk.innerHTML = t.txt12 + ':' + pad(t.s) + '<br><span style="font-size:9px;color:var(--txt2);letter-spacing:2px">' + t.ap + '</span>';
+    if (clk) clk.innerHTML = t.txt12 + ':' + pad(t.s) + ' <span style="font-size:12px;color:var(--txt2);letter-spacing:2px">' + t.ap + '</span>';
     // Auto-fill hora if not in trip
     var hf = el('s-hora');
     if (hf && !hf.dataset.manual && !tripActive) hf.value = t.txt;
@@ -1458,7 +1475,7 @@ function registrarMamas() {
   // Add mamas badge to card 2
   var badge = document.createElement('div');
   badge.style.cssText = 'padding:4px 12px 12px;font-family:var(--fm);font-size:11px;color:var(--grn)';
-  badge.textContent = '✅ Mamás: ' + t.txt + (tardanza > 0 ? ' (+' + tardanza + 'min tarde)' : ' (a tiempo)');
+  badge.textContent = '✅ MARCADA MAMÁS: ' + t.txt + (tardanza > 0 ? ' (+' + tardanza + 'min tarde)' : ' (a tiempo)');
   el('card-2').appendChild(badge);
 }
 
@@ -1490,12 +1507,15 @@ function registrarLlegada() {
     fbUpd('tardanzaAcum/' + LV.unit, {total: tardTotal, fecha: today()});
   }
 
+  var destNom = viaje.destFinal || viaje.dest || '?';
   LV = null; tripActive = false;
   stopCountdown();
-  resetTripUI(tardTotal > 0 ? 'ok' : 'ok',
+  autoMamasLock = false; autoDestLock = false;
+  clearInterval(autoMamasCountdown); clearInterval(autoDestCountdown);
+  resetTripUI(tardTotal > 0 ? 'warn' : 'ok',
     tardTotal > 0
-      ? '⚠ Llegada registrada · Tardanza: +' + tardTotal + 'min · Multa: S/' + tardTotal
-      : '✅ Llegada registrada a tiempo');
+      ? '⚠ LLEGADA ' + destNom + ' · Tardanza: +' + tardTotal + 'min · Multa: S/' + tardTotal
+      : '✅ LLEGADA ' + destNom + ' · Registrada a tiempo');
 }
 
 function resetTripUI(type, msg) {
@@ -1585,7 +1605,7 @@ function startAutoMamas() {
   clearInterval(autoMamasCountdown);
   autoMamasCountdown = setInterval(function() {
     secs--;
-    setAlert('alert-2', '✅ En zona Mamás · Auto-marcando en ' + secs + 's... (toca para cancelar)', 'ok');
+    setAlert('alert-2', '✅ En zona MAMÁS · Marcando en ' + secs + 's... Toca [MARCAR] para confirmar ahora', 'ok');
     if (secs <= 0) {
       clearInterval(autoMamasCountdown);
       if (LV && !LV.mamasHora) registrarMamas();
@@ -1601,7 +1621,7 @@ function startAutoDest() {
   clearInterval(autoDestCountdown);
   autoDestCountdown = setInterval(function() {
     secs--;
-    setAlert('alert-3', '🏁 En zona destino · Auto-registrando en ' + secs + 's... (toca para cancelar)', 'ok');
+    var dname = LV ? LV.dest : 'destino'; setAlert('alert-3', '🏁 En zona ' + dname + ' · Llegada en ' + secs + 's... Toca [LLEGADA] para confirmar ahora', 'ok');
     if (secs <= 0) {
       clearInterval(autoDestCountdown);
       if (LV) registrarLlegada();
@@ -2541,6 +2561,23 @@ function changeClave() {
   localStorage.setItem('sup_key', k1);
   el('new-key').value=''; el('new-key2').value='';
   setAlert('clave-alert','Clave cambiada ✓','ok');
+}
+
+function doResetTotal() {
+  var key = el('reset-key') ? el('reset-key').value.trim() : '';
+  var validKey = (FD.config.resetKey || 'reset2024');
+  if (!key) { alert('Ingresa la clave de reinicio'); return; }
+  if (key !== validKey) { alert('Clave de reinicio incorrecta'); return; }
+  if (!confirm('⚠️ ATENCIÓN\n\nEsto borrará TODOS los viajes, multas, incidentes y reportes de Firebase.\n\n¿Estás seguro?')) return;
+  if (!confirm('Segunda confirmación:\n¿Borrar TODO? Esta acción NO se puede deshacer.')) return;
+  // Delete all operational data (keep config)
+  var paths = ['viajesActivos','historialDia','tardanzaAcum','multasExternas','gpsAlertas','incidentes','reporteMensual'];
+  paths.forEach(function(p) { fbDel(p); });
+  // Reset local state
+  LV = null; tripActive = false;
+  FD.active = {}; FD.hist = {}; FD.multas = {}; FD.gpsAlerts = {}; FD.incidents = {}; FD.report = {};
+  if (el('reset-key')) el('reset-key').value = '';
+  alert('✅ Sistema reiniciado. Todos los datos operativos han sido borrados.');
 }
 
 // ════════════════════════════════════════════════════
