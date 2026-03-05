@@ -97,25 +97,27 @@ html,body { height:100%; background:var(--ink); color:var(--txt); font-family:va
 .topbar {
   background:var(--ink2);
   border-bottom:1px solid var(--wire);
-  padding:8px 12px;
+  padding:10px 14px;
   display:flex; align-items:center; gap:10px;
   flex-shrink:0; z-index:50;
 }
-.tb-brand { font-size:16px; font-weight:900; letter-spacing:1px; flex-shrink:0; }
+.tb-brand { font-size:22px; font-weight:900; letter-spacing:2px; flex-shrink:0; }
 .tb-brand span { color:var(--blu); }
 .tb-unit {
-  background:var(--ink3); border:1px solid var(--wire2);
-  border-radius:20px; padding:3px 10px;
-  font-family:var(--fm); font-size:10px; color:var(--txt2); flex-shrink:0;
+  background:var(--ink3); border:1.5px solid var(--wire2);
+  border-radius:20px; padding:5px 12px;
+  font-family:var(--fm); font-size:12px; color:var(--txt); flex-shrink:0;
+  font-weight:700;
 }
 .tb-clock {
-  font-family:var(--fm); font-size:22px; color:var(--grn);
-  margin-left:auto; flex-shrink:0; text-align:right; line-height:1.1; letter-spacing:1px;
+  font-family:var(--fm); font-size:28px; color:var(--grn);
+  margin-left:auto; flex-shrink:0; text-align:right; line-height:1; letter-spacing:2px;
+  font-weight:700;
 }
 .tb-exit {
-  background:var(--red); border:none; border-radius:8px;
-  color:#fff; font-family:var(--fs); font-size:11px; font-weight:700;
-  padding:6px 12px; cursor:pointer; flex-shrink:0;
+  background:var(--red); border:none; border-radius:10px;
+  color:#fff; font-family:var(--fs); font-size:13px; font-weight:800;
+  padding:9px 16px; cursor:pointer; flex-shrink:0;
 }
 
 /* CONN BAR */
@@ -137,9 +139,9 @@ html,body { height:100%; background:var(--ink); color:var(--txt); font-family:va
   flex-shrink:0; overflow-x:auto; background:var(--ink2);
 }
 .tab {
-  flex:1; min-width:80px; padding:10px 6px;
-  background:none; border:none; border-bottom:2px solid transparent;
-  color:var(--txt2); font-family:var(--fs); font-size:10px; font-weight:700;
+  flex:1; min-width:80px; padding:12px 6px;
+  background:none; border:none; border-bottom:3px solid transparent;
+  color:var(--txt2); font-family:var(--fs); font-size:12px; font-weight:800;
   letter-spacing:.5px; cursor:pointer; transition:.2s; white-space:nowrap;
 }
 .tab.active { color:var(--blu); border-bottom-color:var(--blu); }
@@ -168,15 +170,15 @@ html,body { height:100%; background:var(--ink); color:var(--txt); font-family:va
 .card-red { border-color:rgba(255,68,102,.3); }
 
 .card-title {
-  font-size:10px; letter-spacing:1.5px; color:var(--txt2);
-  margin-bottom:12px; font-weight:700;
+  font-size:11px; letter-spacing:1.5px; color:var(--txt2);
+  margin-bottom:12px; font-weight:800;
 }
 
 /* BUTTONS */
 .btn {
-  display:block; width:100%; padding:14px;
-  border:none; border-radius:10px;
-  font-family:var(--fs); font-size:14px; font-weight:700;
+  display:block; width:100%; padding:16px;
+  border:none; border-radius:12px;
+  font-family:var(--fs); font-size:16px; font-weight:800;
   cursor:pointer; transition:.15s; letter-spacing:.5px;
 }
 .btn:active { transform:scale(.97); }
@@ -195,13 +197,13 @@ html,body { height:100%; background:var(--ink); color:var(--txt); font-family:va
 /* FORM */
 .field { margin-bottom:12px; }
 .field label {
-  display:block; font-size:10px; letter-spacing:1.5px;
-  color:var(--txt2); margin-bottom:6px;
+  display:block; font-size:11px; letter-spacing:1.5px;
+  color:var(--txt2); margin-bottom:7px; font-weight:700;
 }
 .field input, .field select, .field textarea {
   width:100%; background:var(--ink3); border:1.5px solid var(--wire);
-  border-radius:8px; color:var(--txt); font-family:var(--fm); font-size:13px;
-  padding:10px 12px; outline:none; transition:.2s; -webkit-appearance:none;
+  border-radius:10px; color:var(--txt); font-family:var(--fm); font-size:16px;
+  padding:13px 14px; outline:none; transition:.2s; -webkit-appearance:none;
 }
 .field input:focus, .field select:focus, .field textarea:focus { border-color:var(--blu); }
 .field textarea { min-height:80px; resize:vertical; }
@@ -209,7 +211,7 @@ html,body { height:100%; background:var(--ink); color:var(--txt); font-family:va
 .frow3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; }
 
 /* ALERT */
-.alert { border-radius:8px; padding:10px 14px; font-size:12px; min-height:0; }
+.alert { border-radius:10px; padding:12px 16px; font-size:14px; min-height:0; font-weight:600; }
 .alert.ok { background:rgba(0,229,160,.1); color:var(--grn); border:1px solid rgba(0,229,160,.2); }
 .alert.err { background:rgba(255,68,102,.1); color:var(--red); border:1px solid rgba(255,68,102,.2); }
 .alert.warn { background:rgba(255,179,64,.1); color:var(--amb); border:1px solid rgba(255,179,64,.2); }
@@ -236,8 +238,8 @@ html,body { height:100%; background:var(--ink); color:var(--txt); font-family:va
 /* TABLE */
 .tbl-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
 table { width:100%; border-collapse:collapse; min-width:500px; }
-th { background:var(--ink3); color:var(--txt2); font-family:var(--fm); font-size:10px; font-weight:600; padding:8px 10px; text-align:left; border-bottom:1px solid var(--wire); white-space:nowrap; }
-td { padding:8px 10px; border-bottom:1px solid var(--wire); font-size:11px; vertical-align:middle; }
+th { background:var(--ink3); color:var(--txt2); font-family:var(--fm); font-size:11px; font-weight:700; padding:10px 12px; text-align:left; border-bottom:1px solid var(--wire); white-space:nowrap; }
+td { padding:10px 12px; border-bottom:1px solid var(--wire); font-size:13px; vertical-align:middle; }
 tr:last-child td { border-bottom:none; }
 .mono { font-family:var(--fm); }
 
@@ -254,12 +256,12 @@ tr:last-child td { border-bottom:none; }
 .step-card.active-step { border-color:var(--blu); }
 .step-card.done-step { border-color:var(--grn); opacity:.85; }
 .step-card.locked { opacity:.4; pointer-events:none; }
-.step-header { padding:14px 16px; cursor:pointer; display:flex; align-items:center; gap:12px; }
+.step-header { padding:16px 18px; cursor:pointer; display:flex; align-items:center; gap:14px; }
 .step-num {
-  width:28px; height:28px; border-radius:50%;
-  background:var(--ink3); border:1.5px solid var(--wire2);
+  width:36px; height:36px; border-radius:50%;
+  background:var(--ink3); border:2px solid var(--wire2);
   display:flex; align-items:center; justify-content:center;
-  font-size:12px; font-weight:800; flex-shrink:0;
+  font-size:15px; font-weight:900; flex-shrink:0;
 }
 .step-card.active-step .step-num { background:var(--blu); border-color:var(--blu); color:#fff; }
 .step-card.done-step .step-num { background:var(--grn); border-color:var(--grn); color:#000; }
@@ -267,20 +269,20 @@ tr:last-child td { border-bottom:none; }
 
 /* COUNTDOWN */
 .countdown-box {
-  background:var(--ink3); border-radius:10px; padding:14px;
-  text-align:center; margin-bottom:12px; display:none;
+  background:var(--ink3); border-radius:14px; padding:18px;
+  text-align:center; margin-bottom:14px; display:none;
 }
 .countdown-box.visible { display:block; }
 .cd-label { font-size:9px; letter-spacing:2px; color:var(--txt2); margin-bottom:4px; }
-.cd-time { font-family:var(--fm); font-size:38px; font-weight:800; letter-spacing:2px; }
+.cd-time { font-family:var(--fm); font-size:52px; font-weight:900; letter-spacing:4px; }
 .cd-time.ok { color:var(--grn); }
 .cd-time.warn { color:var(--amb); }
 .cd-time.late { color:var(--red); }
 
 /* GEO STATUS */
 .geo-status {
-  border-radius:8px; padding:10px 14px; font-size:12px;
-  margin-bottom:10px; display:flex; align-items:center; gap:8px;
+  border-radius:10px; padding:13px 16px; font-size:14px; font-weight:600;
+  margin-bottom:12px; display:flex; align-items:center; gap:10px;
 }
 .geo-ok { background:rgba(0,229,160,.08); border:1px solid rgba(0,229,160,.25); color:var(--grn); }
 .geo-far { background:rgba(255,68,102,.08); border:1px solid rgba(255,68,102,.25); color:var(--red); }
@@ -294,7 +296,7 @@ tr:last-child td { border-bottom:none; }
 }
 .route-pt {
   flex:1; text-align:center;
-  font-family:var(--fm); font-size:10px; font-weight:700;
+  font-family:var(--fm); font-size:13px; font-weight:800; letter-spacing:1px;
 }
 .route-pt.active { color:var(--blu); }
 .route-pt.done { color:var(--grn); }
@@ -304,19 +306,19 @@ tr:last-child td { border-bottom:none; }
 .route-line.active { background:linear-gradient(90deg,var(--grn),var(--blu)); }
 
 /* MONITOR CARDS */
-.units-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:12px; }
+.units-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:5px; margin-bottom:12px; }
 .uc {
   background:var(--ink3); border:1px solid var(--wire);
-  border-radius:10px; padding:10px 8px; text-align:center;
+  border-radius:8px; padding:6px 4px; text-align:center;
 }
-.uc.en-ruta { border-color:var(--blu); background:rgba(79,142,255,.05); }
-.uc.tarde { border-color:var(--red); background:rgba(255,68,102,.05); }
-.uc-num { font-family:var(--fs); font-size:13px; font-weight:800; }
+.uc.en-ruta { border-color:var(--blu); background:rgba(79,142,255,.07); }
+.uc.tarde { border-color:var(--red); background:rgba(255,68,102,.07); }
+.uc-num { font-family:var(--fs); font-size:12px; font-weight:800; line-height:1; }
 .uc.tarde .uc-num { color:var(--red); }
 .uc.en-ruta .uc-num { color:var(--blu); }
-.uc-name { font-size:9px; color:var(--txt2); margin:2px 0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.uc-status { font-family:var(--fm); font-size:9px; }
-.uc-cd { font-family:var(--fm); font-size:10px; margin-top:3px; }
+.uc-name { font-size:8px; color:var(--txt2); margin:1px 0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.uc-status { font-family:var(--fm); font-size:8px; }
+.uc-cd { font-family:var(--fm); font-size:9px; margin-top:2px; }
 
 /* SUP TABS */
 .sup-tabs { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-bottom:14px; }
@@ -531,8 +533,8 @@ tr:last-child td { border-bottom:none; }
         <div class="step-header">
           <div class="step-num">1</div>
           <div>
-            <div style="font-weight:700;font-size:14px">Registrar Salida</div>
-            <div style="font-size:11px;color:var(--txt2)">Origen y hora de salida</div>
+            <div style="font-weight:900;font-size:18px">Registrar Salida</div>
+            <div style="font-size:13px;color:var(--txt2)">Origen y hora de salida</div>
           </div>
         </div>
         <div class="step-body">
@@ -566,8 +568,8 @@ tr:last-child td { border-bottom:none; }
         <div class="step-header">
           <div class="step-num">2</div>
           <div>
-            <div style="font-weight:700;font-size:14px">Marcar en Mamás</div>
-            <div style="font-size:11px;color:var(--txt2)">Punto intermedio</div>
+            <div style="font-weight:900;font-size:18px">Marcar en Mamás</div>
+            <div style="font-size:13px;color:var(--txt2)">Punto intermedio</div>
           </div>
         </div>
         <div class="step-body">
@@ -587,7 +589,7 @@ tr:last-child td { border-bottom:none; }
         <div class="step-header">
           <div class="step-num">3</div>
           <div>
-            <div style="font-weight:700;font-size:14px">Registrar Llegada</div>
+            <div style="font-weight:900;font-size:18px">Registrar Llegada</div>
             <div style="font-size:11px;color:var(--txt2)" id="dest-label">Destino</div>
           </div>
         </div>
@@ -1510,6 +1512,9 @@ function registrarMamas() {
     esperMin: LV.esperMin
   });
 
+  // Announce arrival at Mamás
+  announceArrival('MAMAS', t.txt, tardanza);
+
   // UI
   el('card-2').className = 'step-card done-step';
   el('card-3').className = 'step-card active-step';
@@ -1555,6 +1560,10 @@ function registrarLlegada() {
   }
 
   var destNom = viaje.destFinal || viaje.dest || '?';
+
+  // Announce arrival at destination
+  announceArrival(destNom, t.txt, tardTotal);
+
   LV = null; tripActive = false;
   stopCountdown();
   autoMamasLock = false; autoDestLock = false;
@@ -1712,10 +1721,71 @@ function tickCD() {
 }
 
 var autoMamasCountdown = null;
+// ════════════════════════════════════════════════════
+// AUDIO & SPEECH
+// ════════════════════════════════════════════════════
+function playBeep(freq, dur, vol) {
+  try {
+    var ctx = new (window.AudioContext || window.webkitAudioContext)();
+    var osc = ctx.createOscillator();
+    var gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = freq || 880;
+    osc.type = 'sine';
+    gain.gain.setValueAtTime(vol || 0.4, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + (dur || 0.4));
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + (dur || 0.4));
+  } catch(e) {}
+}
+
+function playSuccessBeeps() {
+  // Three ascending beeps
+  setTimeout(function(){ playBeep(660, 0.2, 0.5); }, 0);
+  setTimeout(function(){ playBeep(880, 0.2, 0.5); }, 220);
+  setTimeout(function(){ playBeep(1100, 0.4, 0.6); }, 440);
+}
+
+function speak(text) {
+  try {
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    var utt = new SpeechSynthesisUtterance(text);
+    utt.lang = 'es-PE';
+    utt.rate = 0.95;
+    utt.pitch = 1.0;
+    utt.volume = 1.0;
+    // Try to find a Spanish voice
+    var voices = window.speechSynthesis.getVoices();
+    var esVoice = voices.find(function(v){ return v.lang.indexOf('es') === 0; });
+    if (esVoice) utt.voice = esVoice;
+    window.speechSynthesis.speak(utt);
+  } catch(e) {}
+}
+
+function announceArrival(punto, hora, tardanza) {
+  playSuccessBeeps();
+  var msg = '';
+  if (punto === 'MAMAS') {
+    msg = tardanza > 0
+      ? 'Llegada a Mamás. Hora ' + hora + '. Tardanza de ' + tardanza + ' minutos.'
+      : 'Llegada a Mamás. Hora ' + hora + '. A tiempo.';
+  } else {
+    msg = tardanza > 0
+      ? 'Llegada a ' + punto + '. Hora ' + hora + '. Tardanza de ' + tardanza + ' minutos. Multa de ' + tardanza + ' soles.'
+      : 'Llegada a ' + punto + '. Hora ' + hora + '. A tiempo. Sin multa.';
+  }
+  // Small delay to let beeps play first
+  setTimeout(function(){ speak(msg); }, 600);
+}
+
 function startAutoMamas() {
   if (autoMamasLock) return;
   autoMamasLock = true;
   var secs = 5;
+  // Alert beep on entry
+  playBeep(660, 0.3, 0.4);
   clearInterval(autoMamasCountdown);
   autoMamasCountdown = setInterval(function() {
     secs--;
@@ -1732,6 +1802,8 @@ function startAutoDest() {
   if (autoDestLock) return;
   autoDestLock = true;
   var secs = 5;
+  // Alert beep on entry
+  playBeep(660, 0.3, 0.4);
   clearInterval(autoDestCountdown);
   autoDestCountdown = setInterval(function() {
     secs--;
