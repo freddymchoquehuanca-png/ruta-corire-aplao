@@ -1310,13 +1310,18 @@ function startClock() {
   }
   tick();
   setInterval(tick, 1000);
-  // Monitor refresh every 30s
+  // Monitor: refresh unit cards + countdowns every second when visible
   setInterval(function() {
-    if (SESSION.role === 'sup') {
-      var mp = el('panel-monitor');
-      if (mp && mp.classList.contains('active')) renderMonitor();
+    var mp = el('panel-monitor');
+    if (mp && mp.classList.contains('active')) {
+      updateMonitorCards(); // lightweight: only update cards + svg, not full re-render
     }
-  }, 30000);
+  }, 1000);
+  // Full monitor refresh every 15s (table + stats)
+  setInterval(function() {
+    var mp = el('panel-monitor');
+    if (mp && mp.classList.contains('active')) renderMonitor();
+  }, 15000);
 }
 
 // ════════════════════════════════════════════════════
@@ -1945,7 +1950,7 @@ function dlFile(href, name) {
 // MONITOR
 // ════════════════════════════════════════════════════
 function renderMonitor() {
-  if (SESSION.role !== 'sup') return;
+  // Runs for both supervisor and chofer (chofer has monitor tab too)
   var t = now();
   var activos = Object.entries(FD.active || {});
   var running = activos.length, late = 0, onTime = 0;
@@ -1986,22 +1991,24 @@ function renderMonitor() {
       var tard = v ? Math.max(0, t.min - v.esperMin) : 0;
       var cls = v ? (tard > 0 ? 'uc tarde' : 'uc en-ruta') : 'uc';
       var cdTxt = '';
+      var nowSec2 = t.h*3600 + t.m*60 + t.s;
       if (v && !v.mamasHora) {
-        var r = v.mamasEspMin - t.min;
-        var col = r > 5 ? 'var(--grn)' : r > 0 ? 'var(--amb)' : 'var(--red)';
-        cdTxt = '<div class="uc-cd" style="color:' + col + '">→MAM ' + (r>=0?minToTxt(r):'+'+minToTxt(Math.abs(r))) + '</div>';
+        var r = (v.mamasEspMin||0)*60 - nowSec2;
+        var col = r > 300 ? 'var(--grn)' : r > 0 ? 'var(--amb)' : 'var(--red)';
+        cdTxt = '<span style="color:' + col + '">→MAM ' + (r>=0?minSecToTxt(r):'+'+minSecToTxt(Math.abs(r))) + '</span>';
       } else if (v && v.mamasHora) {
-        var r2 = v.esperMin - t.min;
-        var col2 = r2 > 5 ? 'var(--grn)' : r2 > 0 ? 'var(--amb)' : 'var(--red)';
-        cdTxt = '<div class="uc-cd" style="color:' + col2 + '">→' + v.dest + ' ' + (r2>=0?minToTxt(r2):'+'+minToTxt(Math.abs(r2))) + '</div>';
+        var r2 = (v.esperMin||0)*60 - nowSec2;
+        var col2 = r2 > 300 ? 'var(--grn)' : r2 > 0 ? 'var(--amb)' : 'var(--red)';
+        cdTxt = '<span style="color:' + col2 + '">→' + v.dest + ' ' + (r2>=0?minSecToTxt(r2):'+'+minSecToTxt(Math.abs(r2))) + '</span>';
       }
-      gh += '<div class="' + cls + '">' +
+      gh += '<div class="' + cls + '" id="uc-' + i + '">' +
         '<div class="uc-num">U' + pad(i) + '</div>' +
         '<div class="uc-name">' + choferName(i) + '</div>' +
-        '<div class="uc-status" style="color:' + (v?(tard>0?'var(--red)':'var(--blu)'):'var(--txt2)') + '">' +
+        '<div class="uc-status" id="uc-st-' + i + '" style="color:' + (v?(tard>0?'var(--red)':'var(--blu)'):'var(--txt2)') + '">' +
         (v ? (tard > 0 ? '⚠ +' + tard + 'min' : 'EN RUTA') : 'EN BASE') + '</div>' +
         (v ? '<div style="font-size:9px;color:var(--txt2)">' + v.origen + '→' + v.dest + '</div>' : '') +
-        cdTxt + '</div>';
+        '<div class="uc-cd" id="uc-cd-' + i + '">' + (cdTxt||'') + '</div>' +
+        '</div>';
     }
     grid.innerHTML = gh;
   }
@@ -2037,6 +2044,49 @@ function renderMonitor() {
       '<td>' + (tard>0?'<span class="badge badge-red">+'+tard+'min</span>':'<span class="badge badge-grn">✓</span>') + '</td>' +
       '</tr>';
   }).join('');
+}
+
+function updateMonitorCards() {
+  // Fast update: only unit cards countdown + SVG (no DOM rebuild of table)
+  var t = now();
+  var nowSec = t.h * 3600 + t.m * 60 + t.s;
+  for (var i = 1; i <= N; i++) {
+    var v = FD.active[i];
+    var card = el('uc-' + i);
+    if (!card) continue;
+    if (!v) continue;
+    // Update countdown in card
+    var cdEl = el('uc-cd-' + i);
+    if (!cdEl) continue;
+    if (!v.mamasHora) {
+      var mamasSec = (v.mamasEspMin || 0) * 60;
+      var restSec = mamasSec - nowSec;
+      var col = restSec > 300 ? 'var(--grn)' : restSec > 0 ? 'var(--amb)' : 'var(--red)';
+      var txt = restSec >= 0 ? minSecToTxt(restSec) : '+' + minSecToTxt(Math.abs(restSec));
+      cdEl.innerHTML = '<span style="color:' + col + '">→MAM ' + txt + '</span>';
+    } else {
+      var destSec = (v.esperMin || 0) * 60;
+      var restSec2 = destSec - nowSec;
+      var col2 = restSec2 > 300 ? 'var(--grn)' : restSec2 > 0 ? 'var(--amb)' : 'var(--red)';
+      var txt2 = restSec2 >= 0 ? minSecToTxt(restSec2) : '+' + minSecToTxt(Math.abs(restSec2));
+      cdEl.innerHTML = '<span style="color:' + col2 + '">→' + v.dest + ' ' + txt2 + '</span>';
+    }
+    // Update tardanza badge
+    var tard = Math.max(0, t.min - (v.esperMin || 0));
+    var stEl = el('uc-st-' + i);
+    if (stEl) {
+      if (tard > 0) {
+        stEl.textContent = '⚠ +' + tard + 'min';
+        stEl.style.color = 'var(--red)';
+        card.className = 'uc tarde';
+      } else {
+        stEl.textContent = 'EN RUTA';
+        stEl.style.color = 'var(--blu)';
+        card.className = 'uc en-ruta';
+      }
+    }
+  }
+  updateSVG();
 }
 
 function updateSVG() {
