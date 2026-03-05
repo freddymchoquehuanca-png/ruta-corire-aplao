@@ -236,6 +236,41 @@ tr:hover td{background:rgba(255,255,255,.015)}
 .frow3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
 .mono{font-family:var(--fm)}
 
+
+/* ── SUP NAV BUTTONS ── */
+.sup-nav-btn{
+  background:var(--ink3);border:1px solid var(--wire);border-radius:9px;
+  color:var(--txt2);font-family:var(--fs);font-size:11px;font-weight:700;
+  padding:9px 4px;cursor:pointer;transition:.2s;display:flex;flex-direction:column;
+  align-items:center;gap:3px;letter-spacing:.3px;
+}
+.sup-nav-btn span{font-size:9px;letter-spacing:.5px}
+.sup-nav-btn.active{background:var(--blu-g);border-color:var(--blu);color:var(--blu)}
+.sup-nav-btn:active{filter:brightness(.85)}
+
+/* ── CFG SUB TABS ── */
+.cfg-sub-btn{
+  background:var(--ink3);border:1px solid var(--wire);border-radius:7px;
+  color:var(--txt2);font-family:var(--fs);font-size:11px;font-weight:700;
+  padding:7px 12px;cursor:pointer;white-space:nowrap;transition:.2s;flex-shrink:0;
+}
+.cfg-sub-btn.active{background:var(--blu-g);border-color:var(--blu);color:var(--blu)}
+.cfg-sub{display:block}
+.cfg-sub.hidden{display:none}
+
+/* ── MONITOR UNIT CARDS ── */
+.uc{background:var(--ink3);border:1px solid var(--wire);border-radius:10px;padding:11px;transition:.2s;cursor:default}
+.uc.run{border-color:var(--blu);background:rgba(79,142,255,.05)}
+.uc.late{border-color:var(--red);background:rgba(255,68,102,.06)}
+.uc.late .uc-n{color:var(--red)}
+.uc-cd{font-family:var(--fm);font-size:11px;margin-top:4px;padding:3px 6px;background:var(--ink);border-radius:4px;display:inline-block}
+
+/* ── RUTA SVG DOTS ── */
+.r-dot{transition:all .8s ease}
+
+/* ── HISTORIAL STATS ── */
+#hist-sup-stats .stat-v{font-size:22px}
+
 /* SCROLLBAR */
 .content::-webkit-scrollbar{width:4px}
 .content::-webkit-scrollbar-track{background:var(--ink)}
@@ -455,14 +490,54 @@ canvas{width:100%!important;display:block}
 
     <!-- ── MONITOR PANEL ── -->
     <div class="panel" id="panel-monitor">
+      <!-- KPI row -->
       <div class="stats-row" id="monitor-stats"></div>
+
+      <!-- Ruta visual animada -->
+      <div class="card c-wire" style="margin-bottom:12px">
+        <div class="card-title">🗺 Estado de Ruta en Tiempo Real</div>
+        <div style="position:relative;width:100%;overflow-x:auto">
+          <svg id="ruta-svg" width="100%" height="90" viewBox="0 0 400 90" style="min-width:320px">
+            <!-- Track line -->
+            <line x1="40" y1="45" x2="360" y2="45" stroke="#2a3450" stroke-width="6" stroke-linecap="round"/>
+            <line x1="40" y1="45" x2="200" y2="45" stroke="#344060" stroke-width="4" stroke-linecap="round"/>
+            <!-- Nodes -->
+            <circle cx="40" cy="45" r="14" fill="#111520" stroke="#4f8eff" stroke-width="2.5"/>
+            <text x="40" y="50" text-anchor="middle" fill="#4f8eff" font-size="9" font-family="Syne,sans-serif" font-weight="700">COR</text>
+            <circle cx="200" cy="45" r="14" fill="#111520" stroke="#00e5a0" stroke-width="2.5"/>
+            <text x="200" y="50" text-anchor="middle" fill="#00e5a0" font-size="8" font-family="Syne,sans-serif" font-weight="700">MAM</text>
+            <circle cx="360" cy="45" r="14" fill="#111520" stroke="#ffb340" stroke-width="2.5"/>
+            <text x="360" y="50" text-anchor="middle" fill="#ffb340" font-size="8" font-family="Syne,sans-serif" font-weight="700">APL</text>
+            <!-- Labels below -->
+            <text x="40" y="72" text-anchor="middle" fill="#6a88b0" font-size="8" font-family="DM Mono,monospace">CORIRE</text>
+            <text x="200" y="72" text-anchor="middle" fill="#6a88b0" font-size="8" font-family="DM Mono,monospace">MAMÁS</text>
+            <text x="360" y="72" text-anchor="middle" fill="#6a88b0" font-size="8" font-family="DM Mono,monospace">APLAO</text>
+            <!-- Unit dots — filled by JS -->
+            <g id="ruta-dots"></g>
+          </svg>
+        </div>
+        <div id="ruta-legend" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;font-size:10px;font-family:var(--fm);color:var(--txt2)"></div>
+      </div>
+
+      <!-- Alertas de tardanza activas -->
+      <div id="monitor-alertas" style="margin-bottom:12px"></div>
+
+      <!-- Grid de unidades con countdown -->
       <div class="units-grid" id="units-grid"></div>
+
+      <!-- Tabla viajes en curso -->
       <div class="card c-wire">
-        <div class="card-title" style="margin-bottom:10px">🚌 Viajes en curso</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div class="card-title" style="margin:0">🚌 Viajes activos</div>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-ghost btn-sm" onclick="exportMonitorCSV()">📥 CSV</button>
+            <button class="btn btn-ghost btn-sm" id="monitor-auto-btn" onclick="toggleMonitorAuto()" style="font-size:10px">⏸ Auto-actualizar</button>
+          </div>
+        </div>
         <div class="tbl-wrap">
           <table>
-            <thead><tr><th>U#</th><th>Chofer</th><th>Salida</th><th>Mamás</th><th>Destino</th><th>Esperada</th><th>Tardanza</th><th>GPS</th></tr></thead>
-            <tbody id="monitor-tbody"><tr><td colspan="8" style="color:var(--txt2);text-align:center;padding:16px">Sin viajes activos</td></tr></tbody>
+            <thead><tr><th>U#</th><th>Chofer</th><th>Origen→Dest</th><th>Salida</th><th>Mamás</th><th>Esperada</th><th>Restante</th><th>Estado</th></tr></thead>
+            <tbody id="monitor-tbody"><tr><td colspan="8" style="color:var(--txt2);text-align:center;padding:20px">Sin viajes activos</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -470,50 +545,92 @@ canvas{width:100%!important;display:block}
 
     <!-- ── SUPERVISOR PANEL ── -->
     <div class="panel" id="panel-sup">
-      <!-- Tabs internos -->
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
-        <button class="btn btn-blue btn-sm" onclick="showSupTab('historial')">📅 Historial</button>
-        <button class="btn btn-ghost btn-sm" onclick="showSupTab('multas')">💰 Multas</button>
-        <button class="btn btn-ghost btn-sm" onclick="showSupTab('config')">⚙️ Config</button>
-        <button class="btn btn-ghost btn-sm" onclick="showSupTab('alertas')">📡 GPS Alertas</button>
-        <button class="btn btn-ghost btn-sm" onclick="showSupTab('incidentes')">🚨 Incidentes</button>
-        <button class="btn btn-ghost btn-sm" onclick="showSupTab('reporte')">📊 Reporte</button>
+      <!-- Navegación supervisor — pill tabs -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:14px" id="sup-nav">
+        <button class="sup-nav-btn active" onclick="showSupTab('historial',this)">📅<span>Historial</span></button>
+        <button class="sup-nav-btn" onclick="showSupTab('multas',this)">💰<span>Multas</span></button>
+        <button class="sup-nav-btn" onclick="showSupTab('config',this)">⚙️<span>Config</span></button>
+        <button class="sup-nav-btn" onclick="showSupTab('alertas',this)">📡<span>GPS</span></button>
+        <button class="sup-nav-btn" onclick="showSupTab('incidentes',this)">🚨<span>Incidentes</span></button>
+        <button class="sup-nav-btn" onclick="showSupTab('reporte',this)">📊<span>Reporte</span></button>
       </div>
       <!-- Historial -->
       <div id="sup-historial" class="sup-tab">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-          <input type="date" id="hist-fecha" style="background:var(--ink3);border:1px solid var(--wire);border-radius:8px;color:var(--txt);font-family:var(--fm);font-size:13px;padding:8px 10px;outline:none">
-          <button class="btn btn-blue btn-sm" onclick="loadHistFecha()">Ver</button>
-          <button class="btn btn-ghost btn-sm" onclick="exportHistCSV()">📥 CSV</button>
+        <!-- Filtros -->
+        <div style="background:var(--ink3);border:1px solid var(--wire);border-radius:10px;padding:12px;margin-bottom:12px">
+          <div style="font-size:10px;color:var(--txt2);letter-spacing:1px;margin-bottom:8px">🔍 FILTROS</div>
+          <div class="frow" style="margin-bottom:8px">
+            <div class="field" style="margin:0">
+              <label>Fecha</label>
+              <input type="date" id="hist-fecha" style="background:var(--ink);border:1px solid var(--wire2);border-radius:8px;color:var(--txt);font-family:var(--fm);font-size:13px;padding:8px 10px;outline:none;width:100%">
+            </div>
+            <div class="field" style="margin:0">
+              <label>Unidad</label>
+              <select id="hist-filtro-u" style="background:var(--ink);border:1px solid var(--wire2);border-radius:8px;color:var(--txt);font-family:var(--fm);font-size:13px;padding:8px 10px;outline:none;width:100%;-webkit-appearance:none">
+                <option value="">— Todas —</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-blue btn-sm" onclick="loadHistFecha()">🔍 Ver</button>
+            <button class="btn btn-ghost btn-sm" onclick="exportHistCSV()">📥 CSV</button>
+            <button class="btn btn-ghost btn-sm" onclick="exportHistPDF()">📄 PDF</button>
+            <button class="btn btn-ghost btn-sm" onclick="setHistFecha('hoy')">Hoy</button>
+            <button class="btn btn-ghost btn-sm" onclick="setHistFecha('ayer')">Ayer</button>
+          </div>
         </div>
+        <!-- Stats rápidas del día -->
+        <div class="stats-row" id="hist-sup-stats" style="margin-bottom:10px"></div>
         <div class="tbl-wrap">
           <table>
             <thead><tr><th>U#</th><th>Chofer</th><th>Origen</th><th>Salida</th><th>Mamás</th><th>Destino</th><th>Llegada</th><th>Tardanza</th><th>Multa</th><th>GPS</th></tr></thead>
-            <tbody id="hist-sup-tbody"></tbody>
+            <tbody id="hist-sup-tbody"><tr><td colspan="10" style="color:var(--txt2);text-align:center;padding:20px">Selecciona una fecha para ver</td></tr></tbody>
           </table>
         </div>
       </div>
       <!-- Multas externas -->
       <div id="sup-multas" class="sup-tab hidden">
+        <!-- Total acumulado -->
+        <div id="multas-total-card" style="background:linear-gradient(135deg,rgba(255,179,64,.12),rgba(255,68,102,.08));border:1px solid rgba(255,179,64,.3);border-radius:10px;padding:14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-size:10px;color:var(--txt2);letter-spacing:1px;margin-bottom:3px">MULTAS EXTERNAS TOTALES</div>
+            <div style="font-family:var(--fs);font-size:26px;font-weight:800;color:var(--amb)" id="multas-total">S/ 0</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:10px;color:var(--txt2);margin-bottom:3px">Registros</div>
+            <div style="font-family:var(--fs);font-size:20px;font-weight:700;color:var(--txt)" id="multas-count">0</div>
+          </div>
+        </div>
         <div class="card c-amber">
-          <div class="card-title">💰 Registrar Multa Manual</div>
+          <div class="card-title">💰 Nueva Multa Manual</div>
           <div class="frow" style="margin-bottom:10px">
-            <div class="field" style="margin:0">
-              <label>Unidad</label>
+            <div class="field" style="margin:0"><label>Unidad</label>
               <select id="mult-u"><option value="">—</option></select>
             </div>
-            <div class="field" style="margin:0">
-              <label>Monto S/</label>
-              <input type="number" id="mult-m" placeholder="0" min="0">
+            <div class="field" style="margin:0"><label>Monto S/</label>
+              <input type="number" id="mult-m" placeholder="0" min="0" style="font-size:18px;color:var(--amb)">
             </div>
           </div>
-          <div class="field"><label>Motivo</label><input id="mult-mot" placeholder="Descripción..."></div>
-          <button class="btn btn-amber" onclick="addMulta()">Registrar Multa</button>
+          <div class="field"><label>Motivo</label>
+            <input id="mult-mot" placeholder="Describe el motivo de la multa...">
+          </div>
+          <button class="btn btn-amber" onclick="addMulta()">💰 Registrar Multa</button>
         </div>
+        <div style="font-size:10px;color:var(--txt2);letter-spacing:1px;margin-bottom:8px">HISTORIAL DE MULTAS</div>
         <div id="multas-list"></div>
       </div>
       <!-- Config -->
       <div id="sup-config" class="sup-tab hidden">
+        <!-- Sub-tabs config -->
+        <div style="display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;padding-bottom:2px">
+          <button class="cfg-sub-btn active" onclick="showCfgSub('tiempos',this)">⏱ Tiempos</button>
+          <button class="cfg-sub-btn" onclick="showCfgSub('zonas',this)">📡 Zonas GPS</button>
+          <button class="cfg-sub-btn" onclick="showCfgSub('choferes',this)">👤 Choferes</button>
+          <button class="cfg-sub-btn" onclick="showCfgSub('frecuencias',this)">🕐 Frecuencias</button>
+          <button class="cfg-sub-btn" onclick="showCfgSub('seguridad',this)">🔑 Seguridad</button>
+        </div>
+        <!-- Tiempos -->
+        <div id="cfg-tiempos" class="cfg-sub">
         <div class="card c-blue">
           <div class="card-title">⏱ Tiempos (minutos)</div>
           <div class="frow3" style="margin-bottom:10px">
@@ -528,6 +645,8 @@ canvas{width:100%!important;display:block}
           </div>
           <button class="btn btn-blue" onclick="saveTimings()">Guardar tiempos</button>
         </div>
+        </div><!-- /cfg-tiempos -->
+        <div id="cfg-zonas" class="cfg-sub hidden">
         <div class="card c-wire">
           <div class="card-title">📡 Zonas GPS</div>
           <div class="frow3" style="margin-bottom:10px">
@@ -547,11 +666,15 @@ canvas{width:100%!important;display:block}
           </div>
           <button class="btn btn-ghost" onclick="saveZones()">Guardar zonas</button>
         </div>
+        </div><!-- /cfg-zonas -->
+        <div id="cfg-choferes" class="cfg-sub hidden">
         <div class="card c-wire">
           <div class="card-title">👤 Nombres Choferes</div>
           <div id="choferes-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px"></div>
           <button class="btn btn-ghost" onclick="saveChoferes()">Guardar nombres</button>
         </div>
+        </div><!-- /cfg-choferes -->
+        <div id="cfg-frecuencias" class="cfg-sub hidden">
         <div class="card c-blue" id="card-frecuencias">
           <div class="card-title">🕐 Frecuencias de Salida</div>
           <p style="font-size:11px;color:var(--txt2);margin-bottom:12px">Define las horas fijas de salida (ej: 06:00, 06:30). Los choferes podrán seleccionarlas o ingresar hora libre.</p>
@@ -573,6 +696,8 @@ canvas{width:100%!important;display:block}
           </div>
           <button class="btn btn-blue btn-sm" onclick="addFrecuencia()" style="width:auto">+ Agregar frecuencia</button>
         </div>
+        </div><!-- /cfg-frecuencias -->
+        <div id="cfg-seguridad" class="cfg-sub hidden">
         <div class="card c-red">
           <div class="card-title">🔑 Cambiar Clave Supervisor</div>
           <div class="frow" style="margin-bottom:10px">
@@ -582,27 +707,47 @@ canvas{width:100%!important;display:block}
           <button class="btn btn-ghost" onclick="changeClave()">Cambiar clave</button>
           <div class="alert" id="clave-alert" style="margin-top:8px;margin-bottom:0"></div>
         </div>
+        </div><!-- /cfg-seguridad -->
       </div>
       <!-- GPS Alertas -->
       <div id="sup-alertas" class="sup-tab hidden">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div style="font-family:var(--fs);font-size:14px;font-weight:700">📡 Alertas GPS</div>
+          <button class="btn btn-red btn-sm" onclick="clearAllGpsAlerts()">🗑 Limpiar todo</button>
+        </div>
         <div id="gps-alertas-list"></div>
       </div>
       <!-- Incidentes -->
       <div id="sup-incidentes" class="sup-tab hidden">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+          <div style="font-family:var(--fs);font-size:14px;font-weight:700">🚨 Incidentes</div>
+          <div style="display:flex;gap:6px">
+            <select id="inc-filtro-u" onchange="renderIncidentes()" style="background:var(--ink3);border:1px solid var(--wire);border-radius:8px;color:var(--txt);font-family:var(--fm);font-size:12px;padding:6px 8px;outline:none">
+              <option value="">— Todas las unidades —</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" onclick="exportIncCSV()">📥 CSV</button>
+          </div>
+        </div>
         <div id="inc-lista"></div>
       </div>
       <!-- Reporte mensual -->
       <div id="sup-reporte" class="sup-tab hidden">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
           <button class="btn btn-ghost btn-sm" onclick="mesRep(-1)">‹</button>
           <div style="font-family:var(--fs);font-size:18px;font-weight:700;color:var(--amb)" id="mes-lbl">—</div>
           <button class="btn btn-ghost btn-sm" onclick="mesRep(1)">›</button>
-          <button class="btn btn-amber btn-sm" onclick="cerrarMes()">Cerrar mes</button>
-          <button class="btn btn-ghost btn-sm" onclick="exportReportePDF()">📄 PDF</button>
+          <button class="btn btn-amber btn-sm" onclick="cerrarMes()">📅 Cerrar mes</button>
+          <button class="btn btn-blue btn-sm" onclick="exportReportePDF()">📄 PDF general</button>
+        </div>
+        <div style="background:var(--ink3);border:1px solid var(--wire);border-radius:8px;padding:10px;margin-bottom:12px">
+          <div style="font-size:10px;color:var(--txt2);letter-spacing:1px;margin-bottom:8px">PDF / CERRAR POR UNIDAD</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap" id="rep-unit-btns">
+            <!-- filled by JS -->
+          </div>
         </div>
         <div class="tbl-wrap">
           <table>
-            <thead><tr><th>U#</th><th>Chofer</th><th>Viajes</th><th>Tardanza (min)</th><th>Multa S/</th><th>Extras S/</th><th>TOTAL S/</th></tr></thead>
+            <thead><tr><th>U#</th><th>Chofer</th><th>Viajes</th><th>Tardanza</th><th>Multa S/</th><th>Extras S/</th><th>TOTAL S/</th><th>Acciones</th></tr></thead>
             <tbody id="rep-tbody"></tbody>
           </table>
         </div>
@@ -623,14 +768,18 @@ canvas{width:100%!important;display:block}
     </div>
   <!-- ── HISTORIAL PANEL ── -->
     <div class="panel" id="panel-historial">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
         <div style="font-family:var(--fs);font-size:16px;font-weight:700;color:var(--txt)">📋 Mis Viajes</div>
-        <div style="margin-left:auto;display:flex;gap:8px">
+        <div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
           <input type="date" id="hist-chofer-fecha" style="background:var(--ink3);border:1px solid var(--wire);border-radius:8px;color:var(--txt);font-family:var(--fm);font-size:12px;padding:7px 10px;outline:none">
-          <button class="btn btn-ghost btn-sm" onclick="loadHistChoferFecha()">Ver</button>
-          <button class="btn btn-ghost btn-sm" onclick="exportCSV()">📥 CSV</button>
+          <button class="btn btn-blue btn-sm" onclick="loadHistChoferFecha()">Ver día</button>
+          <button class="btn btn-ghost btn-sm" onclick="exportCSV()">📥 CSV día</button>
+          <button class="btn btn-ghost btn-sm" onclick="exportCSVRango()">📥 CSV semana</button>
         </div>
       </div>
+      <!-- Resumen por días (últimos 7) -->
+      <div id="hist-dias-resumen" style="margin-bottom:12px"></div>
+      <!-- Stats del día seleccionado -->
       <div class="stats-row" id="hist-stats"></div>
       <div class="tbl-wrap">
         <table>
@@ -649,17 +798,28 @@ canvas{width:100%!important;display:block}
     <button class="modal-close" onclick="closeIncModal()">✕</button>
     <h3>🚨 Reportar Incidente</h3>
     <div id="modal-inc-sub" style="font-size:11px;color:var(--txt2);margin-bottom:14px"></div>
-    <div class="field"><label>Tipo</label>
-      <select id="inc-tipo">
-        <option value="">— Selecciona —</option>
-        <option>Accidente</option><option>Avería mecánica</option><option>Bloqueo de vía</option>
-        <option>Pasajero conflictivo</option><option>Retraso por clima</option><option>Otro</option>
+    <div class="field"><label>Tipo de incidente</label>
+      <select id="inc-tipo" style="font-size:15px;padding:12px">
+        <option value="">— Selecciona el tipo —</option>
+        <option value="Accidente">🚨 Accidente</option>
+        <option value="Avería mecánica">🔧 Avería mecánica</option>
+        <option value="Bloqueo de vía">🚧 Bloqueo de vía</option>
+        <option value="Pasajero conflictivo">👤 Pasajero conflictivo</option>
+        <option value="Retraso por clima">🌧 Retraso por clima</option>
+        <option value="Otro">📋 Otro</option>
       </select>
     </div>
-    <div class="field"><label>Descripción</label><textarea id="inc-desc" placeholder="Describe el incidente..."></textarea></div>
-    <div class="field"><label>Ubicación GPS</label><input id="inc-gps" readonly placeholder="—"></div>
+    <div class="field"><label>Motivo / Descripción</label>
+      <textarea id="inc-desc" placeholder="Describe detalladamente el incidente..." style="min-height:100px;font-size:14px;line-height:1.6"></textarea>
+    </div>
+    <div id="inc-preview" style="display:none;background:var(--red-g);border:1px solid rgba(255,68,102,.3);border-radius:8px;padding:12px;margin-bottom:10px">
+      <div style="font-size:10px;color:var(--txt2);letter-spacing:1px;margin-bottom:6px">RESUMEN DEL REPORTE</div>
+      <div id="inc-preview-tipo" style="font-family:var(--fs);font-size:15px;font-weight:700;color:var(--red);margin-bottom:4px"></div>
+      <div id="inc-preview-desc" style="font-size:12px;color:var(--txt);line-height:1.5"></div>
+      <div id="inc-preview-gps" style="font-size:10px;color:var(--txt2);margin-top:6px;font-family:var(--fm)"></div>
+    </div>
     <div class="alert" id="inc-alert" style="margin-bottom:10px"></div>
-    <button class="btn btn-amber" onclick="sendIncidente()">Enviar reporte</button>
+    <button class="btn btn-amber" onclick="sendIncidente()" style="font-size:16px;padding:14px">🚨 Enviar y Cancelar Viaje</button>
   </div>
 </div>
 
@@ -875,11 +1035,26 @@ function setTab(id,el){
   if(id==='monitor')renderMonitor();
   if(id==='dash')renderDash();
   if(id==='sup'){showSupTab('historial');loadHistFecha();}
-  if(id==='historial'){loadHistChoferFecha();}
+  if(id==='historial'){renderDiasResumen();loadHistChoferFecha();}
 }
-function showSupTab(id){
+function showSupTab(id, btn){
   document.querySelectorAll('.sup-tab').forEach(t=>t.classList.add('hidden'));
   $('sup-'+id).classList.remove('hidden');
+  // Update nav active
+  if(btn){
+    document.querySelectorAll('.sup-nav-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+  // Side effects
+  if(id==='historial'){loadHistFecha(); buildHistFiltroU();}
+  if(id==='incidentes'){buildIncFiltroU();}
+  if(id==='reporte'){renderReporte();}
+}
+function showCfgSub(id, btn){
+  document.querySelectorAll('.cfg-sub').forEach(s=>s.classList.add('hidden'));
+  $('cfg-'+id).classList.remove('hidden');
+  document.querySelectorAll('.cfg-sub-btn').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
 }
 
 // ════════════════════════════════════════════════════
@@ -889,10 +1064,16 @@ function startClock(){
   const tick=()=>{
     const t=now();
     $('tb-clock').innerHTML=`<span style='font-size:28px;font-weight:500;letter-spacing:1px;font-family:var(--fm);color:var(--grn)'>${t.txt12}:${String(t.s).padStart(2,'0')}</span> <small style='font-size:9px;color:var(--txt2);display:block;line-height:1;letter-spacing:2px;margin-top:1px'>${t.ap}</small>`;
-    // Auto-fill hora only if not manually edited
     const hf=$('s-hora'); if(hf&&!hf.dataset.manual&&!LV&&!tripActive) hf.value=t.txt;
   };
   tick();setInterval(tick,1000);
+  // Auto-refresh monitor every 30s
+  setInterval(()=>{
+    if(monitorAutoRefresh && SESSION.role==='sup'){
+      const mp=$('panel-monitor');
+      if(mp&&mp.classList.contains('active')) renderMonitor();
+    }
+  },30000);
 }
 
 // ════════════════════════════════════════════════════
@@ -1500,19 +1681,62 @@ function addMulta(){
   fbPush('multasExternas',{unit:u,monto:+m,motivo:mot,fecha:today(),hora:now().txt,ts:Date.now()});
   $('mult-m').value='';$('mult-mot').value='';
 }
+function updateRutaSVG(){
+  const dotsG=$('ruta-dots'),legend=$('ruta-legend');
+  if(!dotsG) return;
+  const activos=Object.entries(FD.active||{});
+  if(!activos.length){
+    dotsG.innerHTML='';
+    if(legend)legend.innerHTML='<span style="color:var(--txt2)">Sin unidades en ruta</span>';
+    return;
+  }
+  const t=now().min;
+  const getX=(v)=>{
+    if(!v.mamasHora){
+      const espM=v.salidaMin+tEsp(v.origen,'MAMAS');
+      const pct=Math.min(1,Math.max(0,(t-v.salidaMin)/Math.max(1,espM-v.salidaMin)));
+      return v.origen==='CORIRE'? 40+pct*160 : 360-pct*160;
+    } else {
+      const salidaMamas=parseTxt(v.mamasHora);
+      const espD=tEsp('MAMAS',v.dest);
+      const pct=Math.min(1,Math.max(0,(t-salidaMamas)/Math.max(1,espD)));
+      return v.dest==='APLAO'? 200+pct*160 : 200-pct*160;
+    }
+  };
+  const colors=['#4f8eff','#00e5a0','#ffb340','#ff4466','#bf80ff','#ff8040','#40ffbf','#ff40bf'];
+  let dotsHTML='',legHTML='';
+  activos.forEach(([u,v],i)=>{
+    const x=getX(v);
+    const col=colors[i%colors.length];
+    const tard=Math.max(0,now().min-v.esperMin);
+    dotsHTML+=`<circle cx="${x}" cy="45" r="8" fill="${col}" opacity="0.92"/>
+      <text x="${x}" y="49" text-anchor="middle" fill="#000" font-size="7" font-family="DM Mono,monospace" font-weight="600">${String(u).padStart(2,'0')}</text>`;
+    legHTML+=`<span style="color:${col};background:rgba(0,0,0,.25);padding:2px 7px;border-radius:4px;font-size:10px">U${String(u).padStart(2,'00')}${tard>0?' ⚠':''}</span>`;
+  });
+  dotsG.innerHTML=dotsHTML;
+  if(legend) legend.innerHTML=legHTML||'<span style="color:var(--txt2)">Sin unidades</span>';
+}
+
 function renderMultas(){
   const el=$('multas-list');if(!el)return;
   const ms=Object.entries(FD.multas||{}).sort((a,b)=>b[1].ts-a[1].ts);
-  if(!ms.length){el.innerHTML='<p style="color:var(--txt2);font-size:12px">Sin multas registradas</p>';return;}
+  // Update totals
+  const total=ms.reduce((s,[,m])=>s+(m.monto||0),0);
+  const tc=$('multas-total'),cc=$('multas-count');
+  if(tc) tc.textContent='S/ '+total;
+  if(cc) cc.textContent=ms.length;
+  if(!ms.length){el.innerHTML='<p style="color:var(--txt2);font-size:12px;padding:10px 0">Sin multas registradas</p>';return;}
   el.innerHTML=ms.map(([k,m])=>`
-    <div style="background:var(--ink3);border:1px solid var(--wire);border-radius:8px;padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between">
-      <div>
-        <strong class="mono">U${String(m.unit).padStart(2,'00')}</strong>
-        <span style="color:var(--amb);margin-left:8px">S/${m.monto}</span>
-        <span style="color:var(--txt2);font-size:11px;margin-left:8px">${m.motivo}</span>
-        <div style="font-size:10px;color:var(--txt2)">${m.fecha} ${m.hora}</div>
+    <div style="background:var(--ink3);border:1px solid var(--wire);border-radius:9px;padding:12px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <strong class="mono" style="font-size:14px">U${String(m.unit).padStart(2,'00')}</strong>
+          <span style="color:var(--amb);font-family:var(--fs);font-size:16px;font-weight:700">S/${m.monto}</span>
+          <span style="font-size:10px;color:var(--txt2);font-family:var(--fm)">${m.fecha} ${m.hora}</span>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="fbDel('multasExternas/${k}')" style="padding:3px 8px;font-size:11px">✕</button>
       </div>
-      <button class="btn btn-ghost btn-sm" onclick="fbDel('multasExternas/${k}')">✕</button>
+      <div style="font-size:12px;color:var(--txt);background:var(--ink);border-radius:5px;padding:5px 8px">${m.motivo}</div>
     </div>`).join('');
 }
 
@@ -1571,19 +1795,25 @@ function changeClave(){
 // ════════════════════════════════════════════════════
 // GPS ALERTAS
 // ════════════════════════════════════════════════════
+function clearAllGpsAlerts(){
+  if(!confirm('¿Limpiar todas las alertas GPS?')) return;
+  fbDel('gpsAlertas');
+}
 function renderGpsAlerts(){
   const el=$('gps-alertas-list');if(!el)return;
   const alerts=Object.entries(FD.gpsAlerts||{}).sort((a,b)=>b[1].ts-a[1].ts).slice(0,50);
-  if(!alerts.length){el.innerHTML='<p style="color:var(--txt2);font-size:12px">Sin alertas GPS</p>';return;}
-  el.innerHTML=alerts.map(([k,a])=>`
-    <div style="background:var(--ink3);border:1px solid var(--wire);border-radius:8px;padding:10px 12px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between">
-      <div>
-        <span class="badge amb">${a.tipo}</span>
-        <strong class="mono" style="margin-left:8px">U${String(a.unit||a.unidad).padStart(2,'00')}</strong>
-        <span style="color:var(--txt2);font-size:11px;margin-left:8px">${a.pt||a.punto} · ${fmtDist(a.dist)} · ${a.hora}</span>
-        <div style="font-size:10px;color:var(--txt2)">${a.fecha}</div>
+  if(!alerts.length){el.innerHTML='<p style="color:var(--txt2);font-size:12px;padding:10px 0">Sin alertas GPS registradas</p>';return;}
+  el.innerHTML=`<div style="font-size:10px;color:var(--txt2);margin-bottom:8px">${alerts.length} alerta(s)</div>`+
+  alerts.map(([k,a])=>`
+    <div style="background:rgba(255,179,64,.06);border:1px solid rgba(255,179,64,.25);border-radius:8px;padding:10px 12px;margin-bottom:6px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span class="badge amb">${a.tipo}</span>
+          <strong class="mono">U${String(a.unit||a.unidad).padStart(2,'00')}</strong>
+          <span style="font-size:11px;color:var(--txt2)">${a.pt||a.punto} · ${fmtDist(a.dist)} · ${a.hora} · ${a.fecha}</span>
+        </div>
+        <button onclick="fbDel('gpsAlertas/${k}')" style="background:none;border:none;color:var(--txt2);cursor:pointer;font-size:14px">✕</button>
       </div>
-      <button class="btn btn-ghost btn-sm" onclick="fbDel('gpsAlertas/${k}')">✕</button>
     </div>`).join('');
 }
 
@@ -1592,10 +1822,26 @@ function renderGpsAlerts(){
 // ════════════════════════════════════════════════════
 function openIncModal(){
   const v=LV||FD.active[SESSION.unit];
+  const gpsStr=gpsPos?`${gpsPos.lat.toFixed(5)}, ${gpsPos.lon.toFixed(5)}`:'Sin GPS';
   $('modal-inc-sub').textContent=v?`U${String(SESSION.unit).padStart(2,'00')} · ${v.origen} → ${v.dest} · Salida ${v.salida}`:`U${String(SESSION.unit).padStart(2,'00')}`;
-  if(gpsPos)$('inc-gps').value=`${gpsPos.lat.toFixed(5)}, ${gpsPos.lon.toFixed(5)}`;
   $('inc-tipo').value='';$('inc-desc').value='';
+  $('inc-preview').style.display='none';
   $('modal-inc').classList.add('show');
+  // Live preview
+  const update=()=>{
+    const t=$('inc-tipo').value, d=$('inc-desc').value.trim();
+    const prev=$('inc-preview');
+    if(t||d){
+      prev.style.display='block';
+      $('inc-preview-tipo').textContent=t||'Sin tipo';
+      $('inc-preview-desc').textContent=d||'Sin descripción';
+      $('inc-preview-gps').textContent='📍 '+gpsStr;
+    } else { prev.style.display='none'; }
+  };
+  setTimeout(()=>{
+    $('inc-tipo').onchange=update;
+    $('inc-desc').oninput=update;
+  },100);
 }
 function closeIncModal(){$('modal-inc').classList.remove('show');}
 function sendIncidente(){
@@ -1632,18 +1878,47 @@ function terminarViajeIncidente(u,motivo){
   updateRouteBar(null); renderHistChofer();
   setAlert('alert-1',`🚨 Viaje cancelado · ${motivo} · Registra nueva salida cuando puedas`,'warn');
 }
+function buildIncFiltroU(){
+  const sel=$('inc-filtro-u'); if(!sel) return;
+  const cur=sel.value;
+  sel.innerHTML='<option value="">— Todas las unidades —</option>'+
+    Array.from({length:N_UNITS},(_,i)=>`<option value="${i+1}">U${String(i+1).padStart(2,'00')} · ${choferName(i+1)}</option>`).join('');
+  sel.value=cur;
+}
+function exportIncCSV(){
+  const filtroU=$('inc-filtro-u')?.value||'';
+  let incs=Object.values(FD.incidents||{});
+  if(filtroU) incs=incs.filter(i=>String(i.unit||i.unidad)===filtroU);
+  if(!incs.length){alert('Sin incidentes');return;}
+  incs.sort((a,b)=>b.ts-a.ts);
+  const rows=[['U#','Chofer','Tipo','Descripción','Hora','Fecha','Origen','Destino'],
+    ...incs.map(i=>[`U${String(i.unit||i.unidad).padStart(2,'0')}`,choferName(i.unit||i.unidad),i.tipo,i.desc||'',i.hora,i.fecha,i.origen||'',i.dest||''])];
+  const csv=rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('
+');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,﻿'+encodeURIComponent(csv);
+  a.download=`FRED_incidentes${filtroU?'_U'+filtroU:''}.csv`;a.click();
+}
 function renderIncidentes(){
   const el=$('inc-lista');if(!el)return;
-  const incs=Object.entries(FD.incidents||{}).sort((a,b)=>b[1].ts-a[1].ts).slice(0,50);
-  if(!incs.length){el.innerHTML='<p style="color:var(--txt2);font-size:12px">Sin incidentes</p>';return;}
-  el.innerHTML=incs.map(([k,i])=>`
-    <div style="background:var(--amb-g);border:1px solid rgba(255,179,64,.25);border-radius:8px;padding:10px 12px;margin-bottom:6px">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-        <strong class="mono">U${String(i.unit||i.unidad).padStart(2,'00')}</strong>
-        <span class="mono" style="font-size:10px;color:var(--txt2)">${i.hora}</span>
-        <span class="badge amb">${i.tipo}</span>
+  const filtroU=$('inc-filtro-u')?.value||'';
+  let incs=Object.entries(FD.incidents||{}).sort((a,b)=>b[1].ts-a[1].ts);
+  if(filtroU) incs=incs.filter(([,i])=>String(i.unit||i.unidad)===filtroU);
+  incs=incs.slice(0,60);
+  if(!incs.length){el.innerHTML='<p style="color:var(--txt2);font-size:12px;padding:10px 0">Sin incidentes'+(filtroU?' para esta unidad':'')+'</p>';return;}
+  el.innerHTML=`<div style="font-size:10px;color:var(--txt2);margin-bottom:8px">${incs.length} incidente(s)</div>`+
+  incs.map(([k,i])=>`
+    <div style="background:rgba(255,179,64,.05);border:1px solid rgba(255,179,64,.2);border-radius:9px;padding:12px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <strong class="mono" style="color:var(--txt)">U${String(i.unit||i.unidad).padStart(2,'00')}</strong>
+          <span class="badge amb">${i.tipo}</span>
+          <span class="mono" style="font-size:10px;color:var(--txt2)">${i.fecha} ${i.hora}</span>
+          ${i.origen?`<span style="font-size:10px;color:var(--txt2)">${i.origen}→${i.dest||'?'}</span>`:''}
+        </div>
+        <button onclick="fbDel('incidentes/${k}')" style="background:none;border:none;color:var(--txt2);cursor:pointer;font-size:14px">✕</button>
       </div>
-      <div style="font-size:11px;color:var(--txt2)">${i.desc||'Sin descripción'}</div>
+      ${i.desc?`<div style="font-size:12px;color:var(--txt);background:var(--ink);border-radius:6px;padding:8px;line-height:1.5">${i.desc}</div>`:''}
+      ${i.gps?`<div style="font-size:10px;color:var(--txt2);font-family:var(--fm);margin-top:5px">📍 ${i.gps.lat?.toFixed(5)}, ${i.gps.lon?.toFixed(5)}</div>`:''}
     </div>`).join('');
 }
 
@@ -1717,15 +1992,29 @@ function renderReporte(){
   $('mes-lbl') && ($('mes-lbl').textContent=MONTHS[repMonth.getMonth()]+' '+repMonth.getFullYear());
   const rep=FD.report?.[mk]||{};
   const tbody=$('rep-tbody');if(!tbody)return;
-  if(!Object.keys(rep).length){tbody.innerHTML='<tr><td colspan="7" style="color:var(--txt2);text-align:center;padding:20px">Sin datos. Cierra el mes para generar reporte.</td></tr>';return;}
+  // Build unit buttons
+  const ubw=$('rep-unit-btns');
+  if(ubw){
+    ubw.innerHTML=Array.from({length:N_UNITS},(_,i)=>{
+      const n=i+1;
+      return `<button onclick="exportPDFUnidad(${n})" style="background:var(--ink4);border:1px solid var(--wire2);border-radius:6px;padding:5px 9px;color:var(--txt);font-family:var(--fm);font-size:11px;cursor:pointer">
+        📄 U${String(n).padStart(2,'00')}
+      </button>`;
+    }).join('');
+  }
+  if(!Object.keys(rep).length){tbody.innerHTML='<tr><td colspan="8" style="color:var(--txt2);text-align:center;padding:20px">Sin datos. Cierra el mes para generar reporte.</td></tr>';return;}
   tbody.innerHTML=Object.entries(rep).map(([u,r])=>`<tr>
     <td class="mono">U${String(u).padStart(2,'00')}</td>
     <td>${choferName(u)}</td>
     <td class="mono">${r.viajes||0}</td>
-    <td>${r.tardMin>0?`<span class="badge red">${r.tardMin}min</span>`:'<span class="badge grn">0</span>'}</td>
+    <td>${(r.tardMin||0)>0?`<span class="badge red">${r.tardMin}min</span>`:'<span class="badge grn">0</span>'}</td>
     <td class="mono">S/${r.multaBase||0}</td>
     <td class="mono">S/${r.multaExtra||0}</td>
     <td><strong class="mono" style="color:var(--amb)">S/${(r.multaBase||0)+(r.multaExtra||0)}</strong></td>
+    <td style="white-space:nowrap">
+      <button class="btn btn-ghost btn-sm" onclick="exportPDFUnidad(${u})" style="padding:3px 7px;font-size:10px;margin-bottom:3px;width:auto">📄</button>
+      <button class="btn btn-red btn-sm" onclick="cerrarUnidad(${u})" style="padding:3px 7px;font-size:10px;width:auto">✕</button>
+    </td>
   </tr>`).join('');
 }
 function cerrarMes(){
@@ -1743,14 +2032,152 @@ function cerrarMes(){
   alert('Reporte mensual generado ✓');
   repMonth=new Date();renderReporte();
 }
-function exportReportePDF(){alert('Para PDF: usa Ctrl+P / Imprimir desde el navegador');}
+function exportReportePDF(){
+  const mk=repMonth.getFullYear()+'-'+String(repMonth.getMonth()+1).padStart(2,'0');
+  const mesStr=MONTHS[repMonth.getMonth()]+' '+repMonth.getFullYear();
+  const rep=FD.report?.[mk]||{};
+  if(!Object.keys(rep).length){alert('Sin datos. Cierra el mes primero.');return;}
+  generarPDFReporte(mk, mesStr, null);
+}
+
+function exportPDFUnidad(u){
+  const mk=repMonth.getFullYear()+'-'+String(repMonth.getMonth()+1).padStart(2,'0');
+  const mesStr=MONTHS[repMonth.getMonth()]+' '+repMonth.getFullYear();
+  generarPDFReporte(mk, mesStr, u);
+}
+
+function generarPDFReporte(mk, mesStr, soloUnidad){
+  const rep=FD.report?.[mk]||{};
+  const entries=soloUnidad?[[soloUnidad,rep[soloUnidad]||{}]]:Object.entries(rep);
+  const titulo=soloUnidad?`Reporte U${String(soloUnidad).padStart(2,'00')} — ${mesStr}`:`Reporte Flota FRED — ${mesStr}`;
+
+  // Generar filas detalle de viajes del mes para la unidad
+  let detalleHTML='';
+  if(soloUnidad){
+    const viajes=Object.values(FD.hist||{}).filter(v=>String(v.unit||v.unidad)===String(soloUnidad)&&v.fecha?.startsWith(mk));
+    viajes.sort((a,b)=>a.fecha?.localeCompare(b.fecha)||parseTxt(a.salida)-parseTxt(b.salida));
+    // Agrupar por día
+    const porDia={};
+    viajes.forEach(v=>{if(!porDia[v.fecha])porDia[v.fecha]=[];porDia[v.fecha].push(v);});
+    detalleHTML=`<h3 style="margin:20px 0 8px;color:#333;font-size:13px;border-bottom:2px solid #333;padding-bottom:4px">DETALLE DE VIAJES</h3>
+    <table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:16px">
+      <thead><tr style="background:#f0f0f0">${['Fecha','Origen','Salida','Mamás','Destino','Llegada','Tardanza','Multa S/'].map(h=>`<th style="padding:5px 7px;text-align:left;border:1px solid #ddd">${h}</th>`).join('')}</tr></thead>
+      <tbody>${viajes.map(v=>`<tr style="border-bottom:1px solid #eee">
+        <td style="padding:4px 7px;border:1px solid #ddd;font-size:10px">${v.fecha}</td>
+        <td style="padding:4px 7px;border:1px solid #ddd">${v.origen}</td>
+        <td style="padding:4px 7px;border:1px solid #ddd;font-family:monospace">${v.salida}</td>
+        <td style="padding:4px 7px;border:1px solid #ddd;font-family:monospace">${v.mamasHora||'—'}</td>
+        <td style="padding:4px 7px;border:1px solid #ddd">${v.destFinal||v.dest}</td>
+        <td style="padding:4px 7px;border:1px solid #ddd;font-family:monospace">${v.llegada||'—'}</td>
+        <td style="padding:4px 7px;border:1px solid #ddd;color:${(v.tardTotal||0)>0?'#cc0000':'#009900'}">${(v.tardTotal||0)>0?'+'+v.tardTotal+'min':'OK'}</td>
+        <td style="padding:4px 7px;border:1px solid #ddd;font-weight:bold">${(v.tardTotal||0)>0?'S/'+v.tardTotal:'—'}</td>
+      </tr>`).join('')}</tbody>
+    </table>`;
+  }
+
+  const resumenHTML=entries.map(([u,r])=>`
+    <tr>
+      <td style="padding:6px 10px;border:1px solid #ddd;font-weight:bold">U${String(u).padStart(2,'00')}</td>
+      <td style="padding:6px 10px;border:1px solid #ddd">${choferName(u)}</td>
+      <td style="padding:6px 10px;border:1px solid #ddd;text-align:center">${r.viajes||0}</td>
+      <td style="padding:6px 10px;border:1px solid #ddd;text-align:center;color:${(r.tardMin||0)>0?'#cc0000':'#009900'}">${r.tardMin||0} min</td>
+      <td style="padding:6px 10px;border:1px solid #ddd;text-align:center">S/${r.multaBase||0}</td>
+      <td style="padding:6px 10px;border:1px solid #ddd;text-align:center">S/${r.multaExtra||0}</td>
+      <td style="padding:6px 10px;border:1px solid #ddd;text-align:center;font-weight:bold;color:#c07000">S/${(r.multaBase||0)+(r.multaExtra||0)}</td>
+    </tr>`).join('');
+
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>${titulo}</title>
+  <style>
+    body{font-family:Arial,sans-serif;padding:24px;color:#222;font-size:13px}
+    h1{font-size:20px;margin-bottom:2px;color:#111}
+    h2{font-size:13px;color:#555;font-weight:normal;margin-bottom:20px}
+    table{width:100%;border-collapse:collapse}
+    th{background:#1a2540;color:#fff;padding:7px 10px;text-align:left;font-size:12px}
+    .total-row{background:#fff8e6;font-weight:bold}
+    .footer{margin-top:30px;font-size:10px;color:#888;border-top:1px solid #ddd;padding-top:10px}
+  </style></head><body>
+  <h1>🚌 FRED · Control de Flota</h1>
+  <h2>${titulo}</h2>
+  <h3 style="margin:0 0 8px;color:#333;font-size:13px;border-bottom:2px solid #333;padding-bottom:4px">RESUMEN ${soloUnidad?'UNIDAD':'GENERAL'}</h3>
+  <table style="margin-bottom:16px">
+    <thead><tr><th>U#</th><th>Chofer</th><th>Viajes</th><th>Tardanza</th><th>Multa Base</th><th>Multa Extra</th><th>TOTAL</th></tr></thead>
+    <tbody>${resumenHTML}</tbody>
+    <tfoot><tr class="total-row">
+      <td colspan="2" style="padding:6px 10px;border:1px solid #ddd">TOTAL</td>
+      <td style="padding:6px 10px;border:1px solid #ddd;text-align:center">${entries.reduce((s,[,r])=>s+(r.viajes||0),0)}</td>
+      <td style="padding:6px 10px;border:1px solid #ddd;text-align:center">${entries.reduce((s,[,r])=>s+(r.tardMin||0),0)} min</td>
+      <td style="padding:6px 10px;border:1px solid #ddd;text-align:center">S/${entries.reduce((s,[,r])=>s+(r.multaBase||0),0)}</td>
+      <td style="padding:6px 10px;border:1px solid #ddd;text-align:center">S/${entries.reduce((s,[,r])=>s+(r.multaExtra||0),0)}</td>
+      <td style="padding:6px 10px;border:1px solid #ddd;text-align:center;color:#c07000">S/${entries.reduce((s,[,r])=>s+(r.multaBase||0)+(r.multaExtra||0),0)}</td>
+    </tr></tfoot>
+  </table>
+  ${detalleHTML}
+  <div class="footer">Generado: ${new Date().toLocaleString('es-PE')} · FRED Control de Flota</div>
+  <script>window.onload=()=>window.print();<\/script>
+  </body></html>`;
+
+  const blob=new Blob([html],{type:'text/html'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=`FRED_${soloUnidad?'U'+String(soloUnidad).padStart(2,'00')+'_':''
+}${mk}.html`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function cerrarUnidad(u){
+  const mk=new Date().getFullYear()+'-'+String(new Date().getMonth()+1).padStart(2,'0');
+  if(!confirm(`¿Cerrar mes de U${String(u).padStart(2,'00')} — ${choferName(u)}?`)) return;
+  const viajes=Object.values(FD.hist||{}).filter(v=>String(v.unit||v.unidad)===String(u)&&v.fecha?.startsWith(mk));
+  const tardMin=viajes.reduce((s,v)=>s+(v.tardTotal||v.tardanza||0),0);
+  const multaExtra=Object.values(FD.multas||{}).filter(m=>String(m.unit)===String(u)&&m.fecha?.startsWith(mk)).reduce((s,m)=>s+m.monto,0);
+  const rep={viajes:viajes.length,tardMin,multaBase:tardMin,multaExtra};
+  fbUpd('reporteMensual/'+mk+'/'+u, rep);
+  alert(`U${String(u).padStart(2,'00')} cerrado ✓`);
+  renderReporte();
+}
 
 // ════════════════════════════════════════════════════
 // HISTORIAL PANEL (chofer)
 // ════════════════════════════════════════════════════
 function loadHistChoferFecha(){
   const f=$('hist-chofer-fecha')?.value||today();
+  renderDiasResumen();
   renderHistChoferExt(f);
+}
+function renderDiasResumen(){
+  if(!SESSION.unit) return;
+  const el=$('hist-dias-resumen'); if(!el) return;
+  // Últimos 14 días con datos
+  const todosViajes=Object.values(FD.hist||{}).filter(v=>String(v.unit)===String(SESSION.unit));
+  const diasConDatos=[...new Set(todosViajes.map(v=>v.fecha))].filter(Boolean).sort().reverse().slice(0,14);
+  if(!diasConDatos.length){el.innerHTML='';return;}
+  el.innerHTML=`
+    <div style="font-size:10px;color:var(--txt2);letter-spacing:1px;margin-bottom:8px">DÍAS CON REGISTROS (toca para ver)</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">
+      ${diasConDatos.map(f=>{
+        const vs=todosViajes.filter(v=>v.fecha===f);
+        const multa=vs.reduce((s,v)=>s+(v.tardTotal||0),0);
+        const tarde=vs.filter(v=>(v.tardTotal||0)>0).length;
+        const isToday=f===today();
+        return `<button onclick="selectDiaHist('${f}')"
+          style="background:${multa>0?'rgba(255,68,102,.1)':'rgba(0,229,160,.08)'};
+                 border:1px solid ${multa>0?'rgba(255,68,102,.3)':'rgba(0,229,160,.25)'};
+                 border-radius:8px;padding:8px 10px;cursor:pointer;text-align:left;min-width:90px">
+          <div style="font-family:var(--fm);font-size:10px;color:var(--txt2)">${f}${isToday?' · HOY':''}</div>
+          <div style="font-family:var(--fs);font-size:13px;font-weight:700;color:${multa>0?'var(--red)':'var(--grn)'};margin-top:2px">${vs.length} viajes</div>
+          <div style="font-size:11px;color:${multa>0?'var(--red)':'var(--txt2)'}">${multa>0?'S/'+multa+' multa':'Sin multa'}</div>
+        </button>`;
+      }).join('')}
+    </div>`;
+}
+function selectDiaHist(f){
+  const hf=$('hist-chofer-fecha'); if(hf) hf.value=f;
+  renderHistChoferExt(f);
+  // Scroll a la tabla
+  setTimeout(()=>$('hist-tbody-ext')?.closest('.tbl-wrap')?.scrollIntoView({behavior:'smooth',block:'start'}),100);
 }
 function renderHistChoferExt(fecha){
   if(!SESSION.unit) return;
@@ -1765,10 +2192,10 @@ function renderHistChoferExt(fecha){
     hs.innerHTML=`
       <div class="stat"><div class="stat-v">${total}</div><div class="stat-l">Viajes</div></div>
       <div class="stat"><div class="stat-v" style="color:var(--red)">${tard}</div><div class="stat-l">Con tardanza</div></div>
-      <div class="stat"><div class="stat-v" style="color:var(--amb)">S/${multa}</div><div class="stat-l">Multa total</div></div>
+      <div class="stat"><div class="stat-v" style="color:var(--amb)">S/${multa}</div><div class="stat-l">Multa ${f}</div></div>
     `;
   }
-  if(!viajes.length){tbody.innerHTML='<tr><td colspan="7" style="color:var(--txt2);text-align:center;padding:20px">Sin viajes el '+f+'</td></tr>';return;}
+  if(!viajes.length){tbody.innerHTML=`<tr><td colspan="7" style="color:var(--txt2);text-align:center;padding:20px">Sin viajes el ${f}</td></tr>`;return;}
   viajes.sort((a,b)=>parseTxt(a.salida)-parseTxt(b.salida));
   tbody.innerHTML=viajes.map(v=>`
     <tr>
@@ -1780,6 +2207,20 @@ function renderHistChoferExt(fecha){
       <td>${(v.tardTotal||0)>0?`<span class="badge red">+${v.tardTotal}min</span>`:'<span class="badge grn">0</span>'}</td>
       <td class="mono">${(v.tardTotal||0)>0?'S/'+v.tardTotal:'—'}</td>
     </tr>`).join('');
+}
+function exportCSVRango(){
+  if(!SESSION.unit) return;
+  const todosViajes=Object.values(FD.hist||{}).filter(v=>String(v.unit)===String(SESSION.unit));
+  if(!todosViajes.length){alert('Sin datos');return;}
+  todosViajes.sort((a,b)=>a.fecha?.localeCompare(b.fecha)||parseTxt(a.salida)-parseTxt(b.salida));
+  const rows=[['Fecha','Origen','Salida','Mamás','Destino','Llegada','Tardanza (min)','Multa S/'],
+    ...todosViajes.map(v=>[v.fecha,v.origen,v.salida,v.mamasHora||'',v.destFinal||v.dest,v.llegada||'',(v.tardTotal||0),(v.tardTotal||0)])];
+  const csv=rows.map(r=>r.join(',')).join('
+');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,﻿'+encodeURIComponent(csv);
+  a.download=`FRED_U${String(SESSION.unit).padStart(2,'00')}_historial_completo.csv`;
+  a.click();
 }
 
 // ════════════════════════════════════════════════════
