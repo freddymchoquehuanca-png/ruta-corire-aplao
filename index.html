@@ -2553,18 +2553,18 @@ window.onload = function() {
 
   var hf = el('hist-fecha'); if (hf) hf.value = today();
 
-  var s = localStorage.getItem('ft_cfg');
-  if (s) {
-    try {
-      var cfg = JSON.parse(s);
-      if (el('cfg-key')) el('cfg-key').value = cfg.apiKey || '';
-      if (el('cfg-url')) el('cfg-url').value = cfg.databaseURL || '';
-      if (el('cfg-pid')) el('cfg-pid').value = cfg.projectId || '';
-      connectFB(cfg);
-    } catch(e) {
-      showSetupMsg('Error al cargar configuración guardada', 'err');
-    }
-  }
+  // Credenciales Firebase pre-configuradas
+  var FIREBASE_CFG = {
+    apiKey: 'AIzaSyAYsETvB3xPRqu9KXw9iCeUUanZrDBuifM',
+    databaseURL: 'https://ruta-corire-aplao-default-rtdb.firebaseio.com',
+    projectId: 'ruta-corire-aplao'
+  };
+  // Pre-fill fields
+  if (el('cfg-key')) el('cfg-key').value = FIREBASE_CFG.apiKey;
+  if (el('cfg-url')) el('cfg-url').value = FIREBASE_CFG.databaseURL;
+  if (el('cfg-pid')) el('cfg-pid').value = FIREBASE_CFG.projectId;
+  // Auto-connect immediately (no manual steps needed)
+  connectFB(FIREBASE_CFG);
 };
 </script>
 
