@@ -906,34 +906,65 @@ const fmtDist = d => d>=1000?`${(d/1000).toFixed(1)}km`:`${d}m`;
 // FIREBASE
 // ════════════════════════════════════════════════════
 function saveCfg(){
-  const cfg={apiKey:$('cfg-key').value.trim(),databaseURL:$('cfg-url').value.trim(),projectId:$('cfg-pid').value.trim()};
-  if(!cfg.apiKey||!cfg.databaseURL){setAlert('setup-alert','Completa API Key y Database URL','err');return;}
+  const cfg={
+    apiKey:$('cfg-key').value.trim(),
+    databaseURL:$('cfg-url').value.trim(),
+    projectId:$('cfg-pid').value.trim()
+  };
+  if(!cfg.apiKey){setAlert('setup-alert','Ingresa el API Key','err');return;}
+  if(!cfg.databaseURL){setAlert('setup-alert','Ingresa el Database URL','err');return;}
+  if(!cfg.databaseURL.startsWith('https://')){
+    setAlert('setup-alert','Database URL debe comenzar con https://','err');return;
+  }
   localStorage.setItem('ft_cfg',JSON.stringify(cfg));
   initFB(cfg);
 }
 function loadSavedCfg(){
   const s=localStorage.getItem('ft_cfg');
-  if(!s){setAlert('setup-alert','No hay configuración guardada','err');return;}
-  const c=JSON.parse(s);
-  $('cfg-key').value=c.apiKey||''; $('cfg-url').value=c.databaseURL||''; $('cfg-pid').value=c.projectId||'';
-  initFB(c);
+  if(!s){setAlert('setup-alert','No hay configuración guardada en este dispositivo','err');return;}
+  try{
+    const cfg=JSON.parse(s);
+    if($('cfg-key')) $('cfg-key').value=cfg.apiKey||'';
+    if($('cfg-url')) $('cfg-url').value=cfg.databaseURL||'';
+    if($('cfg-pid')) $('cfg-pid').value=cfg.projectId||'';
+    initFB(cfg);
+  }catch(e){
+    setAlert('setup-alert','Error al leer configuración: '+e.message,'err');
+  }
 }
 function initFB(cfg){
-  try{if(firebase.apps.length)firebase.app().delete();}catch(e){}
+  // Validate
+  if(!cfg||!cfg.apiKey||!cfg.databaseURL){
+    setAlert('setup-alert','Faltan datos: API Key y Database URL son obligatorios','err');
+    return;
+  }
+  // Clean URL
+  cfg.databaseURL = cfg.databaseURL.trim().replace(/\/+$/,'');
+  // Show loading
+  setAlert('setup-alert','⏳ Conectando a Firebase...','ok');
   try{
+    // Delete previous app if exists
+    if(firebase.apps && firebase.apps.length){
+      firebase.apps.forEach(app=>{ try{app.delete();}catch(e){} });
+    }
     firebase.initializeApp(cfg);
     DB=firebase.database();
+    // Test connection
     DB.ref('.info/connected').on('value',s=>{
       const on=s.val();
-      $('conn-dot').className='conn-dot'+(on?'':' off');
+      const dot=$('conn-dot');
+      if(dot) dot.className='conn-dot'+(on?'':' off');
     });
     subscribeFB();
+    localStorage.setItem('ft_cfg', JSON.stringify(cfg));
     $('s-setup').classList.add('hidden');
     $('s-login').classList.remove('hidden');
-    // Poblar selector de unidades en pantalla de login
-    setTimeout(fillLoginUnits, 800);
-    setAlert('setup-alert','Conectado ✓','ok');
-  }catch(e){setAlert('setup-alert','Error: '+e.message,'err');}
+    setTimeout(fillLoginUnits, 600);
+  }catch(e){
+    console.error('Firebase init error:', e);
+    setAlert('setup-alert','❌ Error de conexión: '+e.message,'err');
+    DB=null;
+  }
 }
 function reconfig(){$('s-login').classList.add('hidden');$('s-setup').classList.remove('hidden');}
 
@@ -2317,16 +2348,24 @@ function fillLoginUnits(){
 // INIT
 // ════════════════════════════════════════════════════
 window.onload=()=>{
-  // Pre-fill today's date
   const hf=$('hist-fecha');if(hf)hf.value=today();
-  // Try auto-connect
   const s=localStorage.getItem('ft_cfg');
   if(s){
     try{
-      const c=JSON.parse(s);
-      $('cfg-key').value=c.apiKey||'';$('cfg-url').value=c.databaseURL||'';$('cfg-pid').value=c.projectId||'';
-      initFB(c);
-    }catch(e){}
+      const cfg=JSON.parse(s);
+      // Pre-fill fields
+      if($('cfg-key')) $('cfg-key').value=cfg.apiKey||'';
+      if($('cfg-url')) $('cfg-url').value=cfg.databaseURL||'';
+      if($('cfg-pid')) $('cfg-pid').value=cfg.projectId||'';
+      // Auto-connect
+      initFB(cfg);
+    }catch(e){
+      console.error('Auto-connect failed:',e);
+      setAlert('setup-alert','Error al cargar configuración guardada. Ingresa los datos manualmente.','err');
+    }
+  } else {
+    // No saved config — show hint
+    setAlert('setup-alert','Ingresa los datos de tu proyecto Firebase para comenzar.','ok');
   }
 };
 </script>
