@@ -1466,7 +1466,17 @@ function registrarMamas() {
   LV.mamasHora = t.txt;
   LV.mamasTardanza = tardanza;
 
-  fbUpd('viajesActivos/' + LV.unit, {mamasHora: t.txt, mamasTardanza: tardanza});
+  // Recalcular esperMin desde la hora REAL de llegada a Mamás
+  // Ej: APLAO→CORIRE: llegó MAM 16:29 → destino = 16:29 + 12min = 16:41
+  var mamasRealMin = t.min;
+  var tramo2Min = tEsp('MAMAS', LV.dest);
+  LV.esperMin = mamasRealMin + tramo2Min;
+
+  fbUpd('viajesActivos/' + LV.unit, {
+    mamasHora: t.txt,
+    mamasTardanza: tardanza,
+    esperMin: LV.esperMin
+  });
 
   // UI
   el('card-2').className = 'step-card done-step';
