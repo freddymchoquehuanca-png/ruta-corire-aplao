@@ -104,9 +104,9 @@ html,body { height:100%; background:var(--ink); color:var(--txt); font-family:va
 .tb-brand { font-size:22px; font-weight:900; letter-spacing:2px; flex-shrink:0; }
 .tb-brand span { color:var(--blu); }
 .tb-unit {
-  background:var(--ink3); border:1.5px solid var(--wire2);
-  border-radius:20px; padding:5px 12px;
-  font-family:var(--fm); font-size:12px; color:var(--txt); flex-shrink:0;
+  background:var(--ink3); border:1px solid var(--wire2);
+  border-radius:14px; padding:3px 9px;
+  font-family:var(--fm); font-size:11px; color:var(--txt2); flex-shrink:0;
   font-weight:700;
 }
 .tb-clock {
@@ -649,6 +649,15 @@ tr:last-child td { border-bottom:none; }
     <div class="panel" id="panel-monitor">
       <!-- KPIs -->
       <div class="stats" id="monitor-stats"></div>
+      <!-- Times reference -->
+      <div style="background:var(--ink3);border:1px solid var(--wire);border-radius:8px;padding:8px 12px;margin-bottom:10px;display:flex;gap:10px;flex-wrap:wrap;font-family:var(--fm);font-size:10px;color:var(--txt2);align-items:center">
+        <span>⏱</span>
+        <span><strong style="color:var(--blu)">COR→APL</strong> 18+13=<strong style="color:var(--grn)">31min</strong></span>
+        <span style="color:var(--wire2)">|</span>
+        <span><strong style="color:var(--amb)">APL→COR</strong> 19+12=<strong style="color:var(--grn)">31min</strong></span>
+        <span style="color:var(--wire2)">|</span>
+        <span style="color:var(--grn)">Salida + 31min = Llegada</span>
+      </div>
 
       <!-- SVG Route -->
       <div class="card" style="padding:14px">
@@ -784,7 +793,15 @@ tr:last-child td { border-bottom:none; }
               <div class="field" style="margin:0"><label>COR→APL</label><input type="number" id="t-ca" min="1"></div>
               <div class="field" style="margin:0"><label>APL→COR</label><input type="number" id="t-ac" min="1"></div>
             </div>
-            <button class="btn btn-blue" onclick="saveTimings()">Guardar tiempos</button>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <button class="btn btn-blue" onclick="saveTimings()">💾 Guardar</button>
+              <button class="btn btn-ghost" onclick="resetTimings()">↺ Restablecer</button>
+            </div>
+            <div style="background:var(--ink);border-radius:8px;padding:10px;margin-top:10px;font-size:11px;color:var(--txt2);font-family:var(--fm);line-height:2">
+              🅐 COR→MAM: <strong style="color:var(--grn)">18</strong>min + MAM→APL: <strong style="color:var(--grn)">13</strong>min = <strong style="color:var(--amb)">31min</strong><br>
+              🅑 APL→MAM: <strong style="color:var(--grn)">19</strong>min + MAM→COR: <strong style="color:var(--grn)">12</strong>min = <strong style="color:var(--amb)">31min</strong><br>
+              <strong style="color:var(--grn)">Regla: Salida + 31min = Llegada esperada (fijo)</strong>
+            </div>
           </div>
         </div>
 
@@ -1165,7 +1182,16 @@ function reconfig() {
 
 function subscribeFB() {
   DB.ref('config').on('value', function(s) {
-    if (s.val()) FD.config = Object.assign({}, JSON.parse(JSON.stringify(DEFAULT_CONFIG)), s.val());
+    var remote = s.val();
+    if (remote) {
+      FD.config = Object.assign({}, JSON.parse(JSON.stringify(DEFAULT_CONFIG)), remote);
+      // Deep merge times: always use DEFAULT_CONFIG times as floor if remote has old values
+      // Supervisor can override via config panel — but if times are missing, use defaults
+      FD.config.times = Object.assign({}, DEFAULT_CONFIG.times, remote.times || {});
+      FD.config.pts   = Object.assign({}, DEFAULT_CONFIG.pts,   remote.pts   || {});
+    } else {
+      FD.config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+    }
     refreshConfigForms();
     renderFrecuencias();
     fillLoginUnits();
@@ -1275,7 +1301,7 @@ function startApp() {
       '<button class="tab active" onclick="showPanel(\'chofer\',this)">🚌 Viaje</button>' +
       '<button class="tab" onclick="showPanel(\'historial\',this)">📋 Historial</button>' +
       '<button class="tab" onclick="showPanel(\'monitor\',this)">🖥 Monitor</button>';
-    el('tb-unit').textContent = 'U' + pad(SESSION.unit) + ' · ' + choferName(SESSION.unit);
+    el('tb-unit').textContent = 'U' + pad(SESSION.unit);
   } else {
     tabs.innerHTML =
       '<button class="tab active" onclick="showPanel(\'monitor\',this)">🖥 Monitor</button>' +
@@ -1500,16 +1526,13 @@ function registrarMamas() {
   LV.mamasHora = t.txt;
   LV.mamasTardanza = tardanza;
 
-  // Recalcular esperMin desde la hora REAL de llegada a Mamás
-  // Ej: APLAO→CORIRE: llegó MAM 16:29 → destino = 16:29 + 12min = 16:41
-  var mamasRealMin = t.min;
-  var tramo2Min = tEsp('MAMAS', LV.dest);
-  LV.esperMin = mamasRealMin + tramo2Min;
+  // esperMin NO cambia — la ruta completa siempre es 31min desde la salida
+  // COR→APL: 18+13=31min | APL→COR: 19+12=31min
+  // esperMin ya fue calculado al registrar salida: salidaMin + 31
 
   fbUpd('viajesActivos/' + LV.unit, {
     mamasHora: t.txt,
-    mamasTardanza: tardanza,
-    esperMin: LV.esperMin
+    mamasTardanza: tardanza
   });
 
   // Announce arrival at Mamás
@@ -2723,8 +2746,26 @@ function refreshConfigForms() {
 function saveTimings() {
   var t = {};
   ['cm','ma','am','mc','ca','ac'].forEach(function(k) { var e=el('t-'+k); if(e)t[k]=parseInt(e.value)||0; });
+  // Validate correct route times
+  if (t.cm !== 18 || t.ma !== 13 || t.am !== 19 || t.mc !== 12) {
+    if (!confirm('⚠️ Los tiempos difieren de los estándar:\n' +
+      'COR→MAM: ' + t.cm + 'min (estándar: 18)\n' +
+      'MAM→APL: ' + t.ma + 'min (estándar: 13)\n' +
+      'APL→MAM: ' + t.am + 'min (estándar: 19)\n' +
+      'MAM→COR: ' + t.mc + 'min (estándar: 12)\n\n¿Guardar de todas formas?')) return;
+  }
   fbUpd('config', {times: t});
   alert('Tiempos guardados ✓');
+}
+
+function resetTimings() {
+  var def = DEFAULT_CONFIG.times;
+  // Fill form with defaults
+  Object.keys(def).forEach(function(k) { var e=el('t-'+k); if(e) e.value=def[k]; });
+  // Push to Firebase
+  fbSet('config/times', def);
+  FD.config.times = Object.assign({}, def);
+  alert('✅ Tiempos restablecidos a valores estándar:\nCOR→MAM: 18min | MAM→APL: 13min\nAPL→MAM: 19min | MAM→COR: 12min');
 }
 
 function saveZones() {
