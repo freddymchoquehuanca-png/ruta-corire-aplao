@@ -1547,8 +1547,11 @@ function registrarMamas() {
   updateGeoStatus();
   setAlert('alert-2', '');
 
-  // Add mamas badge to card 2
+  // Clear previous mamas badges and add fresh one
+  var oldBadges = el('card-2').querySelectorAll('.mamas-badge');
+  oldBadges.forEach(function(b){ b.remove(); });
   var badge = document.createElement('div');
+  badge.className = 'mamas-badge';
   badge.style.cssText = 'padding:4px 12px 12px;font-family:var(--fm);font-size:11px;color:var(--grn)';
   badge.textContent = '✅ MARCADA MAMÁS: ' + t.txt + (tardanza > 0 ? ' (+' + tardanza + 'min tarde)' : ' (a tiempo)');
   el('card-2').appendChild(badge);
@@ -1598,6 +1601,8 @@ function registrarLlegada() {
 }
 
 function resetTripUI(type, msg) {
+  // Clear mamas badges from previous trip
+  document.querySelectorAll('.mamas-badge').forEach(function(b){ b.remove(); });
   el('card-1').className = 'step-card active-step';
   el('card-2').className = 'step-card locked';
   el('card-3').className = 'step-card locked';
@@ -2578,10 +2583,36 @@ function renderReporte() {
 
   var tbody = el('rep-tbody');
   if (!tbody) return;
+  // If no closed report, build live from FD.hist
   var entries = Object.entries(rep);
   if (!entries.length) {
-    tbody.innerHTML = '<tr><td colspan="8" style="color:var(--txt2);text-align:center;padding:16px">Sin datos · Cierra el mes para generar reporte</td></tr>';
-    return;
+    var viajes = Object.values(FD.hist || {});
+    var liveData = {};
+    viajes.forEach(function(v) {
+      if (!v.fecha || !v.fecha.startsWith(mk)) return;
+      var u = String(parseInt(v.unit || v.unidad || 0));
+      if (!u || u === '0') return;
+      if (!liveData[u]) liveData[u] = {viajes:0, tardMin:0, multaBase:0, multaExtra:0};
+      liveData[u].viajes++;
+      liveData[u].tardMin += (v.tardTotal || v.tardanza || 0);
+      liveData[u].multaBase += (v.tardTotal || v.tardanza || 0);
+    });
+    // Add external fines
+    Object.values(FD.multas || {}).forEach(function(m) {
+      var u = String(parseInt(m.unit || 0));
+      if (!u || u === '0') return;
+      if ((m.fecha || '').startsWith(mk)) {
+        if (!liveData[u]) liveData[u] = {viajes:0, tardMin:0, multaBase:0, multaExtra:0};
+        liveData[u].multaExtra += (m.monto || 0);
+      }
+    });
+    entries = Object.entries(liveData);
+    if (!entries.length) {
+      tbody.innerHTML = '<tr><td colspan="8" style="color:var(--txt2);text-align:center;padding:16px">Sin viajes registrados este mes</td></tr>';
+      return;
+    }
+    // Sort by unit number
+    entries.sort(function(a,b){ return parseInt(a[0])-parseInt(b[0]); });
   }
   tbody.innerHTML = entries.map(function(e) {
     var u=e[0], r=e[1];
