@@ -627,6 +627,10 @@ tr:last-child td { border-bottom:none; }
 
     <!-- ── HISTORIAL CHOFER PANEL ── -->
     <div class="panel panel-bottom" id="panel-historial">
+      <!-- PROGRAMA DEL DÍA -->
+      <div class="card" id="prog-chofer-panel" style="margin-bottom:10px;padding:12px">
+        <div style="color:var(--txt2);font-size:12px">Cargando programa...</div>
+      </div>
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
         <input type="date" id="hist-chofer-fecha" style="background:var(--ink3);border:1px solid var(--wire);border-radius:8px;color:var(--txt);font-family:var(--fm);font-size:13px;padding:8px 10px;outline:none;flex:1">
         <button class="btn btn-blue btn-sm" onclick="loadHistChofer()">Ver</button>
@@ -837,22 +841,52 @@ tr:last-child td { border-bottom:none; }
 
         <div class="cfg-content" id="ct-frecuencias">
           <div class="card card-blu">
-            <div class="card-title">🕐 FRECUENCIAS DE SALIDA</div>
-            <div id="frec-list" style="margin-bottom:12px"></div>
-            <div class="frow" style="margin-bottom:8px">
-              <div class="field" style="margin:0"><label>ORIGEN</label>
-                <select id="frec-origen">
-                  <option value="AMBOS">AMBOS</option>
-                  <option value="CORIRE">CORIRE</option>
+            <div class="card-title">📅 PROGRAMA DEL DÍA</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+              <div class="field" style="margin:0">
+                <label>ORIGEN</label>
+                <select id="prog-origen" onchange="renderProgramaDia()">
                   <option value="APLAO">APLAO</option>
+                  <option value="CORIRE">CORIRE</option>
                 </select>
               </div>
-              <div class="field" style="margin:0"><label>HORA</label>
-                <input type="time" id="frec-hora" style="color:var(--grn);font-size:16px">
+              <div class="field" style="margin:0">
+                <label>FECHA</label>
+                <input type="date" id="prog-fecha" onchange="renderProgramaDia()">
               </div>
             </div>
-            <div class="field"><label>ETIQUETA (opcional)</label><input id="frec-label" placeholder="ej: Primer servicio"></div>
-            <button class="btn btn-blue btn-sm" onclick="addFrecuencia()">+ Agregar</button>
+            <div id="prog-list" style="margin-bottom:10px;max-height:320px;overflow-y:auto"></div>
+            <div style="background:var(--ink);border-radius:10px;padding:12px;margin-bottom:10px">
+              <div style="font-size:10px;letter-spacing:1px;color:var(--txt2);margin-bottom:8px;font-weight:700">➕ AGREGAR SALIDA</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+                <div class="field" style="margin:0">
+                  <label>HORA SALIDA</label>
+                  <input type="time" id="prog-hora-sal" style="font-size:16px;color:var(--grn)">
+                </div>
+                <div class="field" style="margin:0">
+                  <label>UNIDAD</label>
+                  <select id="prog-unidad"></select>
+                </div>
+              </div>
+              <div class="field" style="margin:0 0 8px 0">
+                <label>CHOFER (nombre)</label>
+                <input type="text" id="prog-chofer-nom" placeholder="Nombre del chofer" style="font-size:14px">
+              </div>
+              <div class="field" style="margin:0 0 10px 0">
+                <label>HORA INGRESO (opcional)</label>
+                <input type="time" id="prog-hora-ing" style="font-size:15px;color:var(--txt2)">
+              </div>
+              <button class="btn btn-blue" onclick="addProgramaEntry()" style="padding:10px;font-size:13px">➕ Agregar</button>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <button class="btn btn-ghost" onclick="clearProgramaDia()" style="padding:8px;font-size:12px">🗑 Limpiar día</button>
+              <button class="btn btn-blue" onclick="exportProgramaCSV()" style="padding:8px;font-size:12px">📥 CSV</button>
+            </div>
+          </div>
+          <!-- Hidden legacy fields for backward compat -->
+          <div style="display:none">
+            <div id="frec-list"></div>
+            <input id="frec-hora"><select id="frec-origen"><option value="AMBOS">AMBOS</option></select><input id="frec-label">
           </div>
         </div>
 
@@ -1016,7 +1050,8 @@ var FD = {
   multas: {},
   gpsAlerts: {},
   incidents: {},
-  report: {}
+  report: {},
+  programa: {}
 };
 
 var repMonth = new Date();
@@ -1223,6 +1258,12 @@ function subscribeFB() {
   });
   DB.ref('reporteMensual').on('value', function(s) {
     FD.report = s.val() || {};
+    renderReporte();
+  });
+  DB.ref('programaDia').on('value', function(s) {
+    FD.programa = s.val() || {};
+    renderProgramaDia();
+    renderProgramaChofer();
   });
 }
 
@@ -1337,6 +1378,10 @@ function startApp() {
 
   var hf2 = el('hist-fecha');
   if (hf2) hf2.value = today();
+  // Init programa form
+  var pf = el('prog-fecha'); if (pf) pf.value = today();
+  var pu = el('prog-unidad');
+  if (pu) { var oh='<option value="">-- Unidad --</option>'; for(var i=1;i<=N;i++) oh+='<option value="'+i+'">U'+pad(i)+'</option>'; pu.innerHTML=oh; }
 }
 
 function showPanel(id, btn) {
