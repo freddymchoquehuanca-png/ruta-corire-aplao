@@ -2947,6 +2947,226 @@ window.onload = function() {
   // Auto-connect immediately (no manual steps needed)
   connectFB(FIREBASE_CFG);
 };
+
+// ════════════════════════════════════════════════════════
+// PROGRAMA DEL DÍA
+// Firebase: programaDia/YYYY-MM-DD/APLAO|CORIRE/{push}
+// Multas ingreso: tarde=S/10, sin ingreso=S/20
+// ════════════════════════════════════════════════════════
+
+function progFecha() {
+  var d = el('prog-fecha');
+  return (d && d.value) ? d.value : today();
+}
+function progOrigen() {
+  var o = el('prog-origen');
+  return o ? o.value : 'APLAO';
+}
+function progPath(origen) {
+  return 'programaDia/' + progFecha() + '/' + (origen || progOrigen());
+}
+
+function renderProgramaDia() {
+  var origen = progOrigen();
+  var fecha  = progFecha();
+  var list   = el('prog-list');
+  if (!list) return;
+
+  // Fill unidad selector
+  var sel = el('prog-unidad');
+  if (sel && sel.options.length <= 1) {
+    var oh = '<option value="">-- Unidad --</option>';
+    for (var i = 1; i <= N; i++) oh += '<option value="' + i + '">U' + pad(i) + '</option>';
+    sel.innerHTML = oh;
+  }
+
+  var data = (FD.programa && FD.programa[fecha] && FD.programa[fecha][origen]) ? FD.programa[fecha][origen] : {};
+  var arr  = Object.entries(data).map(function(e) { return Object.assign({_key: e[0]}, e[1]); });
+  arr.sort(function(a, b) { return (a.horaSal || '').localeCompare(b.horaSal || ''); });
+
+  if (!arr.length) {
+    list.innerHTML = '<div style="color:var(--txt2);font-size:12px;text-align:center;padding:16px">Sin salidas programadas · Agrega una entrada</div>';
+    return;
+  }
+
+  // Calculate frequency between consecutive departures
+  var h = '<table style="width:100%;border-collapse:collapse;font-size:12px">' +
+    '<thead><tr style="color:var(--txt2);font-size:10px;border-bottom:1px solid var(--wire)">' +
+    '<th style="padding:5px 4px">#</th>' +
+    '<th style="padding:5px 4px">ING</th>' +
+    '<th style="padding:5px 4px;color:var(--grn)">SAL</th>' +
+    '<th style="padding:5px 4px">FREC</th>' +
+    '<th style="padding:5px 4px">UNIDAD</th>' +
+    '<th style="padding:5px 4px;text-align:left">CHOFER</th>' +
+    '<th style="padding:5px 4px">MULTA</th>' +
+    '<th style="padding:5px 4px"></th>' +
+    '</tr></thead><tbody>';
+
+  arr.forEach(function(e, idx) {
+    var num = idx + 1;
+    // Frequency vs previous
+    var freq = '';
+    if (idx > 0) {
+      var prevMin = txtToMin(arr[idx-1].horaSal || '00:00');
+      var currMin = txtToMin(e.horaSal || '00:00');
+      freq = (currMin - prevMin) + 'min';
+    } else {
+      freq = '--';
+    }
+    // Ingreso multa logic
+    var multaIng = 0;
+    var multaColor = 'var(--txt2)';
+    var multaTxt = '--';
+    if (!e.horaIng) {
+      // No ingreso registered
+      multaIng = 20; multaColor = 'var(--red)'; multaTxt = 'S/20';
+    } else {
+      // Check if ingreso is late (ingreso >= salida)
+      var ingMin = txtToMin(e.horaIng);
+      var salMin = txtToMin(e.horaSal || '00:00');
+      if (ingMin >= salMin) {
+        multaIng = 10; multaColor = 'var(--amb)'; multaTxt = 'S/10';
+      } else {
+        multaTxt = '✅'; multaColor = 'var(--grn)';
+      }
+    }
+    var rowStyle = idx % 2 === 0 ? '' : 'background:rgba(255,255,255,.02)';
+    h += '<tr style="border-bottom:1px solid var(--wire);' + rowStyle + '">' +
+      '<td style="padding:5px 4px;color:var(--txt2);font-family:var(--fm)">' + num + '</td>' +
+      '<td style="padding:5px 4px;font-family:var(--fm);font-size:11px">' +
+        (e.horaIng
+          ? '<span style="color:var(--grn)">' + e.horaIng + '</span>'
+          : '<button onclick="regIngresoProg(\'' + e._key + '\')" style="background:rgba(79,142,255,.2);border:none;border-radius:5px;color:var(--blu);font-size:10px;padding:2px 6px;cursor:pointer">🕐 ING</button>') +
+      '</td>' +
+      '<td style="padding:5px 4px;font-family:var(--fm);color:var(--grn);font-weight:700">' + (e.horaSal || '--') + '</td>' +
+      '<td style="padding:5px 4px;font-family:var(--fm);font-size:10px;color:var(--txt2)">' + freq + '</td>' +
+      '<td style="padding:5px 4px"><span class="badge ' + (origen === 'CORIRE' ? 'badge-blu' : 'badge-amb') + '">U' + pad(e.unit || 0) + '</span></td>' +
+      '<td style="padding:5px 4px;font-size:11px">' + (e.chofer || choferName(e.unit || 0)) + '</td>' +
+      '<td style="padding:5px 4px;font-family:var(--fm);font-size:11px;color:' + multaColor + ';font-weight:700">' + multaTxt + '</td>' +
+      '<td style="padding:5px 4px">' +
+        '<button onclick="delProgramaEntry(\'' + e._key + '\')" style="background:rgba(255,68,102,.15);border:none;border-radius:5px;color:var(--red);font-size:11px;padding:3px 7px;cursor:pointer">✕</button>' +
+      '</td>' +
+      '</tr>';
+  });
+  h += '</tbody></table>';
+  list.innerHTML = h;
+}
+
+function addProgramaEntry() {
+  var origen  = progOrigen();
+  var horaSal = el('prog-hora-sal') ? el('prog-hora-sal').value : '';
+  var unitVal = el('prog-unidad')   ? el('prog-unidad').value   : '';
+  var chofer  = el('prog-chofer-nom') ? el('prog-chofer-nom').value.trim() : '';
+  var horaIng = el('prog-hora-ing') ? el('prog-hora-ing').value : '';
+
+  if (!horaSal) { alert('Ingresa la hora de salida'); return; }
+  if (!unitVal) { alert('Selecciona una unidad'); return; }
+
+  var unit = parseInt(unitVal);
+  var entry = {
+    unit:    unit,
+    chofer:  chofer || choferName(unit),
+    horaSal: horaSal,
+    horaIng: horaIng || '',
+    ts:      Date.now()
+  };
+
+  fbPush(progPath(origen), entry);
+
+  // Clear form fields
+  if (el('prog-hora-sal'))   el('prog-hora-sal').value   = '';
+  if (el('prog-hora-ing'))   el('prog-hora-ing').value   = '';
+  if (el('prog-chofer-nom')) el('prog-chofer-nom').value = '';
+  if (el('prog-unidad'))     el('prog-unidad').value     = '';
+}
+
+function regIngresoProg(key) {
+  var t = now();
+  fbUpd(progPath(progOrigen()) + '/' + key, {horaIng: t.txt});
+}
+
+function delProgramaEntry(key) {
+  if (!confirm('¿Eliminar esta entrada?')) return;
+  fbDel(progPath(progOrigen()) + '/' + key);
+}
+
+function clearProgramaDia() {
+  if (!confirm('¿Limpiar todo el programa de ' + progOrigen() + ' del día ' + progFecha() + '?')) return;
+  fbDel(progPath(progOrigen()));
+}
+
+function exportProgramaCSV() {
+  var origen = progOrigen();
+  var fecha  = progFecha();
+  var data   = (FD.programa && FD.programa[fecha] && FD.programa[fecha][origen]) ? FD.programa[fecha][origen] : {};
+  var arr    = Object.values(data);
+  arr.sort(function(a, b) { return (a.horaSal || '').localeCompare(b.horaSal || ''); });
+  var rows = ['#,Unidad,Chofer,H.Ingreso,H.Salida,Multa'];
+  arr.forEach(function(e, i) {
+    var multa = '';
+    if (!e.horaIng) { multa = 'S/20'; }
+    else if (txtToMin(e.horaIng) >= txtToMin(e.horaSal || '00:00')) { multa = 'S/10'; }
+    else { multa = 'OK'; }
+    rows.push((i+1) + ',U' + pad(e.unit||0) + ',' + (e.chofer||'') + ',' + (e.horaIng||'--') + ',' + (e.horaSal||'--') + ',' + multa);
+  });
+  var blob = new Blob([rows.join('\n')], {type: 'text/csv'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'programa_' + origen + '_' + fecha + '.csv';
+  a.click();
+}
+
+// Chofer view — show today's full schedule
+function renderProgramaChofer() {
+  var panel = el('prog-chofer-panel');
+  if (!panel) return;
+  var fecha  = today();
+  var aplData = (FD.programa && FD.programa[fecha] && FD.programa[fecha]['APLAO'])   ? FD.programa[fecha]['APLAO']   : {};
+  var corData = (FD.programa && FD.programa[fecha] && FD.programa[fecha]['CORIRE'])  ? FD.programa[fecha]['CORIRE']  : {};
+  var aplArr  = Object.values(aplData).sort(function(a,b){ return (a.horaSal||'').localeCompare(b.horaSal||''); });
+  var corArr  = Object.values(corData).sort(function(a,b){ return (a.horaSal||'').localeCompare(b.horaSal||''); });
+
+  if (!aplArr.length && !corArr.length) {
+    panel.innerHTML = '<div style="color:var(--txt2);font-size:12px;padding:8px">Sin programa registrado hoy</div>';
+    return;
+  }
+
+  function tblHTML(arr, orig) {
+    if (!arr.length) return '<div style="color:var(--txt2);font-size:11px;padding:6px">Sin salidas</div>';
+    var myUnit = parseInt(SESSION.unit);
+    var h = '<table style="width:100%;border-collapse:collapse;font-size:12px">' +
+      '<thead><tr style="color:var(--txt2);font-size:10px;border-bottom:1px solid var(--wire)">' +
+      '<th style="padding:4px">#</th><th style="padding:4px">ING</th>' +
+      '<th style="padding:4px">SAL</th><th style="padding:4px">FREC</th>' +
+      '<th style="padding:4px">UNIDAD</th><th style="padding:4px;text-align:left">CHOFER</th>' +
+      '</tr></thead><tbody>';
+    arr.forEach(function(e, idx) {
+      var isMe = myUnit && parseInt(e.unit) === myUnit;
+      var freq = idx > 0 ? (txtToMin(e.horaSal||'00:00') - txtToMin(arr[idx-1].horaSal||'00:00')) + 'min' : '--';
+      var rowBg = isMe ? 'background:rgba(79,142,255,.18)' : (idx%2 ? 'background:rgba(255,255,255,.02)' : '');
+      h += '<tr style="border-bottom:1px solid var(--wire);' + rowBg + '">' +
+        '<td style="padding:4px;font-family:var(--fm);color:var(--txt2)">' + (idx+1) + '</td>' +
+        '<td style="padding:4px;font-family:var(--fm);font-size:11px;color:' + (e.horaIng?'var(--grn)':'var(--red)') + '">' + (e.horaIng||'--') + '</td>' +
+        '<td style="padding:4px;font-family:var(--fm);font-weight:700;color:' + (isMe?'var(--amb)':'var(--grn)') + '">' + (e.horaSal||'--') + '</td>' +
+        '<td style="padding:4px;font-size:10px;color:var(--txt2)">' + freq + '</td>' +
+        '<td style="padding:4px"><span class="badge ' + (orig==='CORIRE'?'badge-blu':'badge-amb') + '">U' + pad(e.unit||0) + '</span>' + (isMe ? ' <span style="color:var(--blu);font-size:10px;font-weight:700">← YO</span>' : '') + '</td>' +
+        '<td style="padding:4px;font-size:11px">' + (e.chofer||choferName(e.unit||0)) + '</td>' +
+        '</tr>';
+    });
+    return h + '</tbody></table>';
+  }
+
+  panel.innerHTML =
+    '<div style="font-size:11px;font-weight:800;letter-spacing:1px;margin-bottom:8px">📅 PROGRAMA HOY ' + fecha + '</div>' +
+    '<div style="margin-bottom:10px">' +
+      '<div style="font-size:11px;color:var(--amb);font-weight:800;margin-bottom:4px">🚌 APLAO → CORIRE (' + aplArr.length + ')</div>' +
+      tblHTML(aplArr, 'APLAO') +
+    '</div>' +
+    '<div>' +
+      '<div style="font-size:11px;color:var(--blu);font-weight:800;margin-bottom:4px">🚌 CORIRE → APLAO (' + corArr.length + ')</div>' +
+      tblHTML(corArr, 'CORIRE') +
+    '</div>';
+}
 </script>
 
 </body>
