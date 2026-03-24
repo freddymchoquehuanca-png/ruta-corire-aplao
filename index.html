@@ -3272,59 +3272,112 @@ function renderProgramaChofer() {
   var pcf = el('prog-chofer-fecha');
   if (pcf && !pcf.value) pcf.value = today();
   var fecha = (pcf && pcf.value) ? pcf.value : today();
-  var aplData = (FD.programa && FD.programa[fecha] && FD.programa[fecha]['APLAO'])   ? FD.programa[fecha]['APLAO']   : {};
-  var corData = (FD.programa && FD.programa[fecha] && FD.programa[fecha]['CORIRE'])  ? FD.programa[fecha]['CORIRE']  : {};
-  var aplArr  = Object.values(aplData).sort(function(a,b){ return (a.horaSal||'').localeCompare(b.horaSal||''); });
-  var corArr  = Object.values(corData).sort(function(a,b){ return (a.horaSal||'').localeCompare(b.horaSal||''); });
-  var showApl = _panelOrigen === 'APLAO' || _panelOrigen === 'AMBOS';
-  var showCor = _panelOrigen === 'CORIRE' || _panelOrigen === 'AMBOS';
-  if (!aplArr.length && !corArr.length) {
-    panel.innerHTML = '<div style="color:var(--txt2);font-size:12px;padding:12px;text-align:center">📭 Sin programa registrado hoy<br><span style="font-size:10px">El supervisor aún no cargó el programa</span></div>';
-    return;
+  var lbl = el('prog-fecha-lbl'); if (lbl) lbl.textContent = fecha;
+
+  var aplData = (FD.programa && FD.programa[fecha] && FD.programa[fecha]['APLAO'])  ? FD.programa[fecha]['APLAO']  : {};
+  var corData = (FD.programa && FD.programa[fecha] && FD.programa[fecha]['CORIRE']) ? FD.programa[fecha]['CORIRE'] : {};
+
+  // Merge all entries with origen tag, sorted by horaSal
+  var all = [];
+  Object.entries(aplData).forEach(function(e){ if (e[0]!=='_foto') all.push(Object.assign({_orig:'APLAO', _key:e[0]}, e[1])); });
+  Object.entries(corData).forEach(function(e){ if (e[0]!=='_foto') all.push(Object.assign({_orig:'CORIRE', _key:e[0]}, e[1])); });
+  all.sort(function(a,b){ return (a.horaSal||'').localeCompare(b.horaSal||''); });
+
+  var myUnit = parseInt(SESSION.unit);
+  var showOrig = _panelOrigen !== 'AMBOS' ? _panelOrigen : null;
+  var filtered = showOrig ? all.filter(function(e){ return e._orig === showOrig; }) : all;
+
+  if (!filtered.length) {
+    panel.innerHTML = '<div style="color:var(--txt2);font-size:12px;padding:16px;text-align:center">📭 Sin programa registrado hoy<br><span style="font-size:10px">El supervisor aún no cargó el programa</span></div>';
+    loadFotoPrograma(); return;
   }
 
-  function tblHTML(arr, orig) {
-    if (!arr.length) return '<div style="color:var(--txt2);font-size:11px;padding:6px">Sin salidas</div>';
-    var myUnit = parseInt(SESSION.unit);
-    var h = '<table style="width:100%;border-collapse:collapse;font-size:12px">' +
-      '<thead><tr style="color:var(--txt2);font-size:10px;border-bottom:1px solid var(--wire)">' +
-      '<th style="padding:4px">#</th><th style="padding:4px">ING</th>' +
-      '<th style="padding:4px">SAL</th><th style="padding:4px">FREC</th>' +
-      '<th style="padding:4px">UNIDAD</th><th style="padding:4px;text-align:left">CHOFER</th>' +
-      '</tr></thead><tbody>';
-    arr.forEach(function(e, idx) {
-      var isMe = myUnit && parseInt(e.unit) === myUnit;
-      var freq = idx > 0 ? (txtToMin(e.horaSal||'00:00') - txtToMin(arr[idx-1].horaSal||'00:00')) + 'min' : '--';
-      var rowBg = isMe ? 'background:rgba(79,142,255,.18)' : (idx%2 ? 'background:rgba(255,255,255,.02)' : '');
-      h += '<tr style="border-bottom:1px solid var(--wire);' + rowBg + '">' +
-        '<td style="padding:4px;font-family:var(--fm);color:var(--txt2)">' + (idx+1) + '</td>' +
-        '<td style="padding:4px;font-family:var(--fm);font-size:11px;color:' + (e.horaIng?'var(--grn)':'var(--red)') + '">' + (e.horaIng||'--') + '</td>' +
-        '<td style="padding:4px;font-family:var(--fm);font-weight:700;color:' + (isMe?'var(--amb)':'var(--grn)') + '">' +
-          (e.horaSal||'--') +
-          (e.salidaReal ? ' <span style="font-size:9px;color:var(--grn)">✓' + e.salidaReal + '</span>' : '') +
-        '</td>' +
-        '<td style="padding:4px;font-size:10px;color:var(--txt2)">' + freq + '</td>' +
-        '<td style="padding:4px"><span class="badge ' + (orig==='CORIRE'?'badge-blu':'badge-amb') + '">U' + pad(e.unit||0) + '</span>' + (isMe ? ' <span style="color:var(--blu);font-size:10px;font-weight:700">← YO</span>' : '') + '</td>' +
-        '<td style="padding:4px;font-size:11px">' + (e.chofer||choferName(e.unit||0)) + '</td>' +
-        '</tr>';
-    });
-    return h + '</tbody></table>';
-  }
+  // ── Build notebook-style table ──
+  var t = now();
+  var nowMin = t.h * 60 + t.m;
 
-  var html = '';
-  if (showApl) {
-    html += '<div style="margin-bottom:12px">' +
-      '<div style="font-size:11px;color:var(--amb);font-weight:800;margin-bottom:6px;padding:6px 8px;background:rgba(251,191,36,.08);border-radius:6px">🚌 APLAO → CORIRE · ' + aplArr.length + ' salidas</div>' +
-      tblHTML(aplArr, 'APLAO') +
-    '</div>';
-  }
-  if (showCor) {
-    html += '<div>' +
-      '<div style="font-size:11px;color:var(--blu);font-weight:800;margin-bottom:6px;padding:6px 8px;background:rgba(79,142,255,.08);border-radius:6px">🚌 CORIRE → APLAO · ' + corArr.length + ' salidas</div>' +
-      tblHTML(corArr, 'CORIRE') +
-    '</div>';
-  }
-  // ── VIAJES REALIZADOS HOY (desde historialDia) ──
+  var html = '<table style="width:100%;border-collapse:collapse">' +
+    '<thead>' +
+    '<tr style="background:var(--ink3);border-bottom:2px solid var(--wire)">' +
+    '<th style="padding:7px 5px;font-size:10px;color:var(--txt2);font-weight:700;text-align:center">#</th>' +
+    '<th style="padding:7px 5px;font-size:10px;color:var(--txt2);font-weight:700;text-align:left">CHOFER</th>' +
+    '<th style="padding:7px 5px;font-size:10px;color:var(--txt2);font-weight:700;text-align:center">SALIDA</th>' +
+    '<th style="padding:7px 5px;font-size:10px;color:var(--txt2);font-weight:700;text-align:center">INGRESO</th>' +
+    '<th style="padding:7px 5px;font-size:10px;color:var(--txt2);font-weight:700;text-align:center">FREC</th>' +
+    '<th style="padding:7px 5px;font-size:10px;color:var(--txt2);font-weight:700;text-align:center">ORIG</th>' +
+    '</tr></thead><tbody>';
+
+  filtered.forEach(function(e, idx) {
+    var isMe = myUnit && parseInt(e.unit) === myUnit;
+    var salMin = txtToMin(e.horaSal || '00:00');
+    var isPast = salMin < nowMin && fecha === today();
+    var hasSalReal = !!e.salidaReal;
+
+    // Row style
+    var rowBg = isMe
+      ? 'background:rgba(79,142,255,.15)'
+      : hasSalReal
+        ? 'background:rgba(34,197,94,.06);opacity:.85'
+        : isPast && !hasSalReal
+          ? 'background:rgba(255,68,102,.06)'
+          : (idx % 2 === 0 ? '' : 'background:rgba(255,255,255,.025)');
+
+    // Frequency vs previous
+    var freq = '--';
+    if (idx > 0) {
+      var prevMin = txtToMin(filtered[idx-1].horaSal || '00:00');
+      var diff = salMin - prevMin;
+      if (diff > 0) freq = diff + 'min';
+    }
+
+    // Ingreso display
+    var ingTxt = '';
+    var ingColor = 'var(--txt2)';
+    if (e.horaIng) {
+      var ingMin = txtToMin(e.horaIng);
+      ingColor = ingMin < salMin ? 'var(--grn)' : 'var(--amb)';
+      ingTxt = '(' + e.horaIng + ')';
+    } else if (isPast) {
+      ingTxt = '--'; ingColor = 'var(--red)';
+    }
+
+    // Salida real tick
+    var salTxt = '<strong style="color:' + (hasSalReal?'var(--grn)':isPast?'var(--red)':'var(--txt)') + ';font-family:var(--fm);font-size:14px">' + (e.horaSal||'--') + '</strong>';
+    if (hasSalReal) salTxt += '<br><span style="font-size:9px;color:var(--grn)">✓' + e.salidaReal + '</span>';
+
+    html +=
+      '<tr style="border-bottom:1px solid var(--wire);' + rowBg + (isMe?';font-weight:700':'') + '">' +
+      '<td style="padding:8px 5px;text-align:center;color:var(--txt2);font-size:12px">' + (idx+1) + '</td>' +
+      '<td style="padding:8px 5px">' +
+        '<div style="font-size:13px;font-weight:' + (isMe?'800':'600') + ';color:' + (isMe?'var(--blu)':'var(--txt)') + '">' +
+          (e.chofer || choferName(e.unit||0)) +
+          (isMe ? ' <span style="font-size:10px;color:var(--blu)">← YO</span>' : '') +
+        '</div>' +
+        '<div style="font-size:10px;color:var(--txt2)">U' + pad(e.unit||0) + '</div>' +
+      '</td>' +
+      '<td style="padding:8px 5px;text-align:center">' + salTxt + '</td>' +
+      '<td style="padding:8px 5px;text-align:center;font-family:var(--fm);font-size:13px;color:' + ingColor + '">' +
+        (ingTxt || '<span style="color:var(--wire2)">--</span>') +
+      '</td>' +
+      '<td style="padding:8px 5px;text-align:center;font-size:11px;color:var(--txt2)">' + freq + '</td>' +
+      '<td style="padding:8px 5px;text-align:center">' +
+        '<span class="badge ' + (e._orig==='CORIRE'?'badge-blu':'badge-amb') + '" style="font-size:9px">' + (e._orig==='CORIRE'?'COR':'APL') + '</span>' +
+      '</td>' +
+      '</tr>';
+  });
+
+  html += '</tbody></table>';
+
+  // Summary row
+  var salidos = filtered.filter(function(e){ return !!e.salidaReal; }).length;
+  var pendientes = filtered.length - salidos;
+  html = '<div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">' +
+    '<div style="background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.3);border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;color:var(--grn)">✅ ' + salidos + ' salieron</div>' +
+    '<div style="background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;color:var(--amb)">⏳ ' + pendientes + ' pendientes</div>' +
+    '<div style="background:var(--ink3);border:1px solid var(--wire);border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;color:var(--txt2)">📋 ' + filtered.length + ' total</div>' +
+    '</div>' + html;
+
+  // ── VIAJES REALIZADOS HOY ──
   var histAll = Object.values(FD.hist || {});
   var histHoy = histAll.filter(function(v){ return v.fecha === fecha; });
   if (histHoy.length > 0) {
@@ -3335,37 +3388,45 @@ function renderProgramaChofer() {
       byUnit[u].push(v);
     });
     Object.keys(byUnit).forEach(function(u){ byUnit[u].sort(function(a,b){ return (a.salida||'').localeCompare(b.salida||''); }); });
-    var myUnit = parseInt(SESSION.unit);
-    var unitKeys = Object.keys(byUnit).map(Number).sort(function(a,b){return a-b;});
-    html += '<div style="margin-top:14px"><div style="font-size:11px;font-weight:800;letter-spacing:1px;color:var(--txt2);margin-bottom:8px;padding:6px 8px;background:var(--ink3);border-radius:6px">🚌 VIAJES REALIZADOS HOY</div>';
+    var unitKeys = Object.keys(byUnit).map(Number).sort(function(a,b){ return a-b; });
+
+    html += '<div style="margin-top:14px">' +
+      '<div style="font-size:11px;font-weight:800;letter-spacing:1px;color:var(--txt2);margin-bottom:8px;padding:7px 10px;background:var(--ink3);border-radius:8px">🚌 VIAJES REALIZADOS HOY · ' + histHoy.length + ' viajes</div>';
+
     unitKeys.forEach(function(u) {
-      var trips = byUnit[u]; var isMe = u === myUnit;
-      html += '<div style="margin-bottom:10px;' + (isMe?'border:1.5px solid var(--blu);border-radius:10px;padding:8px;':'') + '">' +
-        '<div style="font-size:11px;font-weight:800;margin-bottom:4px;color:' + (isMe?'var(--blu)':'var(--txt)') + '">' +
-          'U' + pad(u) + ' · ' + choferName(u) + (isMe?' ← YO':'') + ' · ' + trips.length + ' viaje' + (trips.length>1?'s':'') + '</div>' +
+      var trips = byUnit[u]; var isMe2 = u === myUnit;
+      html +=
+        '<div style="margin-bottom:10px;' + (isMe2?'border:1.5px solid var(--blu);border-radius:10px;padding:8px;':'') + '">' +
+        '<div style="font-size:12px;font-weight:800;margin-bottom:5px;color:' + (isMe2?'var(--blu)':'var(--txt)') + '">' +
+          'U' + pad(u) + ' · ' + choferName(u) + (isMe2?' ← YO':'') +
+          ' <span style="font-size:11px;font-weight:600;color:var(--txt2)">· ' + trips.length + ' viaje' + (trips.length>1?'s':'') + '</span>' +
+        '</div>' +
         '<table style="width:100%;border-collapse:collapse;font-size:11px">' +
         '<thead><tr style="color:var(--txt2);font-size:10px;border-bottom:1px solid var(--wire)">' +
-        '<th style="padding:3px 4px">#</th><th style="padding:3px 4px">ORIG</th><th style="padding:3px 4px">SAL</th>' +
-        '<th style="padding:3px 4px">MAM</th><th style="padding:3px 4px">DEST</th><th style="padding:3px 4px">LLE</th>' +
-        '<th style="padding:3px 4px">TARD</th></tr></thead><tbody>';
+        '<th style="padding:3px 5px">#</th><th style="padding:3px 5px">ORIG</th>' +
+        '<th style="padding:3px 5px">SAL</th><th style="padding:3px 5px">MAM</th>' +
+        '<th style="padding:3px 5px">DEST</th><th style="padding:3px 5px">LLE</th>' +
+        '<th style="padding:3px 5px">TARD</th></tr></thead><tbody>';
       trips.forEach(function(v, ti) {
         var tard = v.tardTotal || v.tardanza || 0;
-        var tardColor = tard > 20 ? 'var(--red)' : tard > 0 ? 'var(--amb)' : 'var(--grn)';
-        var tardTxt = tard > 20 ? '🚫S/20' : tard > 0 ? '+'+tard+'m' : '✅';
-        html += '<tr style="border-bottom:1px solid var(--wire);' + (ti%2?'background:rgba(255,255,255,.02)':'') + '">' +
-          '<td style="padding:3px 4px;color:var(--txt2)">' + (ti+1) + '</td>' +
-          '<td style="padding:3px 4px"><span class="badge ' + (v.origen==='CORIRE'?'badge-blu':'badge-amb') + '" style="font-size:9px">' + (v.origen||'?') + '</span></td>' +
-          '<td style="padding:3px 4px;font-family:var(--fm)">' + (v.salida||'--') + '</td>' +
-          '<td style="padding:3px 4px;font-family:var(--fm)">' + (v.mamasHora||'--') + '</td>' +
-          '<td style="padding:3px 4px"><span class="badge ' + (v.dest==='APLAO'?'badge-amb':'badge-blu') + '" style="font-size:9px">' + (v.dest||'?') + '</span></td>' +
-          '<td style="padding:3px 4px;font-family:var(--fm)">' + (v.llegada||'--') + '</td>' +
-          '<td style="padding:3px 4px;font-family:var(--fm);color:' + tardColor + ';font-weight:700">' + tardTxt + '</td>' +
+        var tc = tard > 20 ? 'var(--red)' : tard > 0 ? 'var(--amb)' : 'var(--grn)';
+        var tt = tard > 20 ? '🚫S/20' : tard > 0 ? '+'+tard+'m' : '✅';
+        html +=
+          '<tr style="border-bottom:1px solid var(--wire);' + (ti%2?'background:rgba(255,255,255,.02)':'') + '">' +
+          '<td style="padding:3px 5px;color:var(--txt2)">' + (ti+1) + '</td>' +
+          '<td style="padding:3px 5px"><span class="badge ' + (v.origen==='CORIRE'?'badge-blu':'badge-amb') + '" style="font-size:9px">' + (v.origen||'?') + '</span></td>' +
+          '<td style="padding:3px 5px;font-family:var(--fm)">' + (v.salida||'--') + '</td>' +
+          '<td style="padding:3px 5px;font-family:var(--fm)">' + (v.mamasHora||'--') + '</td>' +
+          '<td style="padding:3px 5px"><span class="badge ' + (v.dest==='APLAO'?'badge-amb':'badge-blu') + '" style="font-size:9px">' + (v.dest||'?') + '</span></td>' +
+          '<td style="padding:3px 5px;font-family:var(--fm)">' + (v.llegada||'--') + '</td>' +
+          '<td style="padding:3px 5px;font-family:var(--fm);color:' + tc + ';font-weight:700">' + tt + '</td>' +
           '</tr>';
       });
       html += '</tbody></table></div>';
     });
     html += '</div>';
   }
+
   panel.innerHTML = html;
   loadFotoPrograma();
 }// ── INGRESO CHOFER ──
