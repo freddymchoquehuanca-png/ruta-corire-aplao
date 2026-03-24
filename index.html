@@ -507,6 +507,18 @@ tr:last-child td { border-bottom:none; }
     <!-- ── CHOFER PANEL ── -->
     <div class="panel panel-bottom" id="panel-chofer">
 
+      <!-- INGRESO DEL DÍA — registro de llegada a la base -->
+      <div id="ingreso-card" style="display:none;margin-bottom:12px">
+        <div style="background:rgba(79,142,255,.08);border:1.5px solid var(--blu);border-radius:14px;padding:14px 16px">
+          <div style="font-size:11px;letter-spacing:1px;color:var(--txt2);margin-bottom:6px;font-weight:700">📋 TU SALIDA PROGRAMADA HOY</div>
+          <div id="ingreso-info" style="font-size:13px;line-height:2;margin-bottom:12px"></div>
+          <button id="btn-registrar-ingreso" class="btn btn-blue" onclick="registrarIngresoChofer()" style="font-size:15px;padding:14px">
+            🕐 REGISTRAR MI INGRESO
+          </button>
+          <div id="ingreso-ok" style="display:none;margin-top:8px;color:var(--grn);font-family:var(--fm);font-size:13px;font-weight:700;text-align:center"></div>
+        </div>
+      </div>
+
       <!-- RETOMAR VIAJE CARD (shown when returning mid-trip) -->
       <div id="retomar-card" style="display:none;margin-bottom:12px">
         <div style="background:rgba(79,142,255,.08);border:2px solid var(--blu);border-radius:14px;padding:18px">
@@ -1287,6 +1299,7 @@ function subscribeFB() {
     FD.programa = s.val() || {};
     renderProgramaDia();
     renderProgramaChofer();
+    checkIngresoChofer();
   });
 }
 
@@ -3242,6 +3255,58 @@ function renderProgramaChofer() {
     '</div>';
   }
   panel.innerHTML = html;
+}// ── INGRESO CHOFER ──
+function checkIngresoChofer() {
+  var card = el('ingreso-card');
+  if (!card || SESSION.role !== 'chofer') return;
+  var fecha = today();
+  var unit  = parseInt(SESSION.unit);
+  var found = null; var foundKey = null; var foundOrigen = null;
+  ['APLAO','CORIRE'].forEach(function(orig) {
+    var data = (FD.programa && FD.programa[fecha] && FD.programa[fecha][orig]) ? FD.programa[fecha][orig] : {};
+    Object.entries(data).forEach(function(e) {
+      if (parseInt(e[1].unit) === unit) { found = e[1]; foundKey = e[0]; foundOrigen = orig; }
+    });
+  });
+  if (!found) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+  var info = el('ingreso-info');
+  var btnIng = el('btn-registrar-ingreso');
+  var okDiv  = el('ingreso-ok');
+  var multaTxt = '';
+  if (found.horaIng) {
+    var ingMin = txtToMin(found.horaIng), salMin = txtToMin(found.horaSal||'00:00');
+    multaTxt = ingMin >= salMin
+      ? ' <span style="color:var(--amb)">· S/10 tardanza</span>'
+      : ' <span style="color:var(--grn)">· ✅ A tiempo</span>';
+  }
+  if (info) info.innerHTML =
+    '<span style="color:var(--txt2)">Origen:</span> <strong>' + foundOrigen + '</strong><br>' +
+    '<span style="color:var(--txt2)">Hora salida:</span> <strong style="color:var(--grn);font-family:var(--fm)">' + (found.horaSal||'--') + '</strong><br>' +
+    (found.horaIng
+      ? '<span style="color:var(--txt2)">Ingreso:</span> <strong style="color:var(--grn);font-family:var(--fm)">' + found.horaIng + '</strong>' + multaTxt
+      : '<span style="color:var(--red)">Sin ingreso · Multa S/20 si no marca</span>');
+  if (found.horaIng) {
+    if (btnIng) btnIng.style.display = 'none';
+    if (okDiv)  { okDiv.style.display = 'block'; okDiv.textContent = '✅ Ingreso: ' + found.horaIng; }
+  } else {
+    if (btnIng) btnIng.style.display = 'block';
+    if (okDiv)  okDiv.style.display  = 'none';
+  }
+}
+
+function registrarIngresoChofer() {
+  var fecha = today(); var unit = parseInt(SESSION.unit); var t = now();
+  ['APLAO','CORIRE'].forEach(function(orig) {
+    var data = (FD.programa && FD.programa[fecha] && FD.programa[fecha][orig]) ? FD.programa[fecha][orig] : {};
+    Object.entries(data).forEach(function(e) {
+      if (parseInt(e[1].unit) === unit && !e[1].horaIng) {
+        fbUpd('programaDia/' + fecha + '/' + orig + '/' + e[0], {horaIng: t.txt});
+      }
+    });
+  });
+  playSuccessBeeps();
+  setTimeout(checkIngresoChofer, 800);
 }
 </script>
 
