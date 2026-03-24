@@ -1301,6 +1301,9 @@ function subscribeFB() {
     FD.hist = s.val() || {};
     renderHistChofer();
     renderHistSup();
+    if (SESSION.role === 'chofer' && !tripActive) checkRetomar();
+    var mp = el('panel-programa');
+    if (mp && mp.classList.contains('active')) renderProgramaChofer();
   });
   DB.ref('multasExternas').on('value', function(s) {
     FD.multas = s.val() || {};
@@ -3321,7 +3324,50 @@ function renderProgramaChofer() {
       tblHTML(corArr, 'CORIRE') +
     '</div>';
   }
+  // ── VIAJES REALIZADOS HOY (desde historialDia) ──
+  var histAll = Object.values(FD.hist || {});
+  var histHoy = histAll.filter(function(v){ return v.fecha === fecha; });
+  if (histHoy.length > 0) {
+    var byUnit = {};
+    histHoy.forEach(function(v) {
+      var u = parseInt(v.unit || v.unidad || 0); if (!u) return;
+      if (!byUnit[u]) byUnit[u] = [];
+      byUnit[u].push(v);
+    });
+    Object.keys(byUnit).forEach(function(u){ byUnit[u].sort(function(a,b){ return (a.salida||'').localeCompare(b.salida||''); }); });
+    var myUnit = parseInt(SESSION.unit);
+    var unitKeys = Object.keys(byUnit).map(Number).sort(function(a,b){return a-b;});
+    html += '<div style="margin-top:14px"><div style="font-size:11px;font-weight:800;letter-spacing:1px;color:var(--txt2);margin-bottom:8px;padding:6px 8px;background:var(--ink3);border-radius:6px">🚌 VIAJES REALIZADOS HOY</div>';
+    unitKeys.forEach(function(u) {
+      var trips = byUnit[u]; var isMe = u === myUnit;
+      html += '<div style="margin-bottom:10px;' + (isMe?'border:1.5px solid var(--blu);border-radius:10px;padding:8px;':'') + '">' +
+        '<div style="font-size:11px;font-weight:800;margin-bottom:4px;color:' + (isMe?'var(--blu)':'var(--txt)') + '">' +
+          'U' + pad(u) + ' · ' + choferName(u) + (isMe?' ← YO':'') + ' · ' + trips.length + ' viaje' + (trips.length>1?'s':'') + '</div>' +
+        '<table style="width:100%;border-collapse:collapse;font-size:11px">' +
+        '<thead><tr style="color:var(--txt2);font-size:10px;border-bottom:1px solid var(--wire)">' +
+        '<th style="padding:3px 4px">#</th><th style="padding:3px 4px">ORIG</th><th style="padding:3px 4px">SAL</th>' +
+        '<th style="padding:3px 4px">MAM</th><th style="padding:3px 4px">DEST</th><th style="padding:3px 4px">LLE</th>' +
+        '<th style="padding:3px 4px">TARD</th></tr></thead><tbody>';
+      trips.forEach(function(v, ti) {
+        var tard = v.tardTotal || v.tardanza || 0;
+        var tardColor = tard > 20 ? 'var(--red)' : tard > 0 ? 'var(--amb)' : 'var(--grn)';
+        var tardTxt = tard > 20 ? '🚫S/20' : tard > 0 ? '+'+tard+'m' : '✅';
+        html += '<tr style="border-bottom:1px solid var(--wire);' + (ti%2?'background:rgba(255,255,255,.02)':'') + '">' +
+          '<td style="padding:3px 4px;color:var(--txt2)">' + (ti+1) + '</td>' +
+          '<td style="padding:3px 4px"><span class="badge ' + (v.origen==='CORIRE'?'badge-blu':'badge-amb') + '" style="font-size:9px">' + (v.origen||'?') + '</span></td>' +
+          '<td style="padding:3px 4px;font-family:var(--fm)">' + (v.salida||'--') + '</td>' +
+          '<td style="padding:3px 4px;font-family:var(--fm)">' + (v.mamasHora||'--') + '</td>' +
+          '<td style="padding:3px 4px"><span class="badge ' + (v.dest==='APLAO'?'badge-amb':'badge-blu') + '" style="font-size:9px">' + (v.dest||'?') + '</span></td>' +
+          '<td style="padding:3px 4px;font-family:var(--fm)">' + (v.llegada||'--') + '</td>' +
+          '<td style="padding:3px 4px;font-family:var(--fm);color:' + tardColor + ';font-weight:700">' + tardTxt + '</td>' +
+          '</tr>';
+      });
+      html += '</tbody></table></div>';
+    });
+    html += '</div>';
+  }
   panel.innerHTML = html;
+  loadFotoPrograma();
 }// ── INGRESO CHOFER ──
 function checkIngresoChofer() {
   var card = el('ingreso-card');
