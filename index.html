@@ -649,7 +649,8 @@ tr:last-child td { border-bottom:none; }
     <div class="panel panel-bottom" id="panel-programa">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div style="font-size:13px;font-weight:800;letter-spacing:1px">📅 PROGRAMA DEL DÍA</div>
-        <div style="font-family:var(--fm);font-size:11px;color:var(--txt2)" id="prog-fecha-lbl"></div>
+        <input type="date" id="prog-chofer-fecha" onchange="renderProgramaChofer()"
+          style="background:var(--ink3);border:1px solid var(--wire);border-radius:8px;color:var(--txt);font-family:var(--fm);font-size:12px;padding:5px 8px;outline:none">
       </div>
       <!-- Origen filter -->
       <div style="display:flex;gap:8px;margin-bottom:10px">
@@ -887,7 +888,7 @@ tr:last-child td { border-bottom:none; }
                 </div>
                 <div class="field" style="margin:0">
                   <label>UNIDAD</label>
-                  <select id="prog-unidad"></select>
+                  <select id="prog-unidad" onchange="var u=this.value; var n=el('prog-chofer-nom'); if(n&&u) n.value=choferName(parseInt(u));"></select>
                 </div>
               </div>
               <div class="field" style="margin:0 0 8px 0">
@@ -1403,6 +1404,7 @@ function startApp() {
   if (hf2) hf2.value = today();
   // Init programa form
   var pf = el('prog-fecha'); if (pf) pf.value = today();
+  var pcf2 = el('prog-chofer-fecha'); if (pcf2) pcf2.value = today();
   var pu = el('prog-unidad');
   if (pu) { var oh='<option value="">-- Unidad --</option>'; for(var i=1;i<=N;i++) oh+='<option value="'+i+'">U'+pad(i)+'</option>'; pu.innerHTML=oh; }
 }
@@ -1640,12 +1642,19 @@ function registrarLlegada() {
   var tardLleg = Math.max(0, t.min - LV.esperMin);
   var tardTotal = LV.mamasTardanza + tardLleg;
 
+  // Regla: tardanza > 20min → "NO MARCADO" → multa fija S/20
+  var NO_MARCADO_LIMIT = 20;
+  var noMarcado = tardTotal > NO_MARCADO_LIMIT;
+  var multaViaje = noMarcado ? 20 : tardTotal; // S/20 fija o S/1 por minuto
+
   var viaje = Object.assign({}, LV, {
-    llegada: t.txt,
-    tardLleg: tardLleg,
+    llegada:   t.txt,
+    tardLleg:  tardLleg,
     tardTotal: tardTotal,
+    multa:     multaViaje,
+    noMarcado: noMarcado,
     destFinal: LV.dest,
-    done: Date.now()
+    done:      Date.now()
   });
 
   fbDel('viajesActivos/' + LV.unit);
@@ -1663,10 +1672,13 @@ function registrarLlegada() {
   stopCountdown();
   autoMamasLock = false; autoDestLock = false;
   clearInterval(autoMamasCountdown); clearInterval(autoDestCountdown);
-  resetTripUI(tardTotal > 0 ? 'warn' : 'ok',
-    tardTotal > 0
-      ? '⚠ LLEGADA ' + destNom + ' · Tardanza: +' + tardTotal + 'min · Multa: S/' + tardTotal
-      : '✅ LLEGADA ' + destNom + ' · Registrada a tiempo');
+
+  var msgLleg = tardTotal === 0
+    ? '✅ LLEGADA ' + destNom + ' · A tiempo · Sin multa'
+    : noMarcado
+      ? '🚫 NO MARCADO · Tardanza: +' + tardTotal + 'min · Multa fija: S/20'
+      : '⚠ LLEGADA ' + destNom + ' · Tardanza: +' + tardTotal + 'min · Multa: S/' + multaViaje;
+  resetTripUI(tardTotal === 0 ? 'ok' : 'warn', msgLleg);
 }
 
 function resetTripUI(type, msg) {
@@ -2316,7 +2328,11 @@ function updateMonitorCards() {
     var tard = Math.max(0, t.min - (v.esperMin || 0));
     var stEl = el('uc-st-' + i);
     if (stEl) {
-      if (tard > 0) {
+      if (tard > 20) {
+        stEl.textContent = '🚫 S/20';
+        stEl.style.color = 'var(--red)';
+        card.className = 'uc tarde';
+      } else if (tard > 0) {
         stEl.textContent = '⚠ +' + tard + 'min';
         stEl.style.color = 'var(--red)';
         card.className = 'uc tarde';
@@ -2663,8 +2679,10 @@ function renderReporte() {
       if (!u || u === '0') return;
       if (!liveData[u]) liveData[u] = {viajes:0, tardMin:0, multaBase:0, multaExtra:0};
       liveData[u].viajes++;
-      liveData[u].tardMin += (v.tardTotal || v.tardanza || 0);
-      liveData[u].multaBase += (v.tardTotal || v.tardanza || 0);
+      var tardMin = (v.tardTotal || v.tardanza || 0);
+      var multaV  = v.multa !== undefined ? v.multa : (tardMin > 20 ? 20 : tardMin);
+      liveData[u].tardMin    += tardMin;
+      liveData[u].multaBase  += multaV;
     });
     // Add external fines
     Object.values(FD.multas || {}).forEach(function(m) {
@@ -2709,6 +2727,14 @@ function cerrarMes() {
   for (var i = 1; i <= N; i++) {
     var vs = viajes.filter(function(v){ return String(v.unit||v.unidad)===String(i); });
     var tardMin = vs.reduce(function(s,v){ return s+(v.tardTotal||v.tardanza||0); }, 0);
+    var multaBase = vs.reduce(function(s,v){
+      var t = v.tardTotal||v.tardanza||0;
+      return s + (v.multa !== undefined ? v.multa : (t > 20 ? 20 : t));
+    }, 0);
+    var multaBase = vs.reduce(function(s,v){
+      var t = v.tardTotal||v.tardanza||0;
+      return s + (v.multa !== undefined ? v.multa : (t > 20 ? 20 : t));
+    }, 0);
     var multaExtra = Object.values(FD.multas||{}).filter(function(m){ return String(m.unit)===String(i) && m.fecha && m.fecha.startsWith(mk); }).reduce(function(s,m){ return s+m.monto; }, 0);
     if (vs.length > 0 || multaExtra > 0) rep[i] = {viajes: vs.length, tardMin: tardMin, multaBase: tardMin, multaExtra: multaExtra};
   }
@@ -3163,8 +3189,9 @@ function setPanelOrigen(orig, btn) {
 function renderProgramaChofer() {
   var panel = el('prog-chofer-panel');
   if (!panel) return;
-  var fecha  = today();
-  var lbl = el('prog-fecha-lbl'); if (lbl) lbl.textContent = fecha;
+  var pcf = el('prog-chofer-fecha');
+  if (pcf && !pcf.value) pcf.value = today();
+  var fecha = (pcf && pcf.value) ? pcf.value : today();
   var aplData = (FD.programa && FD.programa[fecha] && FD.programa[fecha]['APLAO'])   ? FD.programa[fecha]['APLAO']   : {};
   var corData = (FD.programa && FD.programa[fecha] && FD.programa[fecha]['CORIRE'])  ? FD.programa[fecha]['CORIRE']  : {};
   var aplArr  = Object.values(aplData).sort(function(a,b){ return (a.horaSal||'').localeCompare(b.horaSal||''); });
