@@ -627,10 +627,6 @@ tr:last-child td { border-bottom:none; }
 
     <!-- ── HISTORIAL CHOFER PANEL ── -->
     <div class="panel panel-bottom" id="panel-historial">
-      <!-- PROGRAMA DEL DÍA -->
-      <div class="card" id="prog-chofer-panel" style="margin-bottom:10px;padding:12px">
-        <div style="color:var(--txt2);font-size:12px">Cargando programa...</div>
-      </div>
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
         <input type="date" id="hist-chofer-fecha" style="background:var(--ink3);border:1px solid var(--wire);border-radius:8px;color:var(--txt);font-family:var(--fm);font-size:13px;padding:8px 10px;outline:none;flex:1">
         <button class="btn btn-blue btn-sm" onclick="loadHistChofer()">Ver</button>
@@ -646,6 +642,32 @@ tr:last-child td { border-bottom:none; }
           <thead><tr><th>Origen</th><th>Salida</th><th>Mamás</th><th>Destino</th><th>Llegada</th><th>Tardanza</th><th>Multa S/</th></tr></thead>
           <tbody id="hist-chofer-tbody"><tr><td colspan="7" style="color:var(--txt2);text-align:center;padding:16px">Selecciona una fecha</td></tr></tbody>
         </table>
+      </div>
+    </div>
+
+    <!-- ── PROGRAMA PANEL (chofer) ── -->
+    <div class="panel panel-bottom" id="panel-programa">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:13px;font-weight:800;letter-spacing:1px">📅 PROGRAMA DEL DÍA</div>
+        <div style="font-family:var(--fm);font-size:11px;color:var(--txt2)" id="prog-fecha-lbl"></div>
+      </div>
+      <!-- Origen filter -->
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <button onclick="setPanelOrigen('APLAO',this)" id="pbtn-aplao"
+          style="flex:1;padding:8px;border-radius:8px;border:1.5px solid var(--amb);background:rgba(251,191,36,.12);color:var(--amb);font-weight:800;font-size:12px;cursor:pointer">
+          🚌 APLAO
+        </button>
+        <button onclick="setPanelOrigen('CORIRE',this)" id="pbtn-corire"
+          style="flex:1;padding:8px;border-radius:8px;border:1.5px solid var(--wire);background:transparent;color:var(--txt2);font-weight:700;font-size:12px;cursor:pointer">
+          🚌 CORIRE
+        </button>
+        <button onclick="setPanelOrigen('AMBOS',this)" id="pbtn-ambos"
+          style="flex:1;padding:8px;border-radius:8px;border:1.5px solid var(--wire);background:transparent;color:var(--txt2);font-weight:700;font-size:12px;cursor:pointer">
+          📋 AMBOS
+        </button>
+      </div>
+      <div id="prog-chofer-panel">
+        <div style="color:var(--txt2);font-size:12px;padding:12px;text-align:center">Cargando programa...</div>
       </div>
     </div>
 
@@ -1340,6 +1362,7 @@ function startApp() {
   if (SESSION.role === 'chofer') {
     tabs.innerHTML =
       '<button class="tab active" onclick="showPanel(\'chofer\',this)">🚌 Viaje</button>' +
+      '<button class="tab" onclick="showPanel(\'programa\',this)">📅 Programa</button>' +
       '<button class="tab" onclick="showPanel(\'historial\',this)">📋 Historial</button>' +
       '<button class="tab" onclick="showPanel(\'monitor\',this)">🖥 Monitor</button>';
     el('tb-unit').textContent = 'U' + pad(SESSION.unit);
@@ -1389,6 +1412,7 @@ function showPanel(id, btn) {
   document.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('active'); });
   var p = el('panel-' + id);
   if (p) p.classList.add('active');
+  if (id === 'programa') { renderProgramaChofer(); }
   if (btn) btn.classList.add('active');
   if (id === 'historial') { renderHistDayCards(); loadHistChofer(); }
   if (id === 'monitor') renderMonitor();
@@ -3117,17 +3141,38 @@ function exportProgramaCSV() {
 }
 
 // Chofer view — show today's full schedule
+var _panelOrigen = 'APLAO';
+function setPanelOrigen(orig, btn) {
+  _panelOrigen = orig;
+  ['aplao','corire','ambos'].forEach(function(k){
+    var b = el('pbtn-'+k);
+    if (!b) return;
+    var isActive = k.toUpperCase() === orig || orig === 'AMBOS' && k === 'ambos';
+    b.style.background = isActive ? 'rgba(79,142,255,.18)' : 'transparent';
+    b.style.borderColor = isActive ? 'var(--blu)' : 'var(--wire)';
+    b.style.color = isActive ? 'var(--blu)' : 'var(--txt2)';
+  });
+  if (btn) {
+    btn.style.background = 'rgba(79,142,255,.18)';
+    btn.style.borderColor = 'var(--blu)';
+    btn.style.color = 'var(--blu)';
+  }
+  renderProgramaChofer();
+}
+
 function renderProgramaChofer() {
   var panel = el('prog-chofer-panel');
   if (!panel) return;
   var fecha  = today();
+  var lbl = el('prog-fecha-lbl'); if (lbl) lbl.textContent = fecha;
   var aplData = (FD.programa && FD.programa[fecha] && FD.programa[fecha]['APLAO'])   ? FD.programa[fecha]['APLAO']   : {};
   var corData = (FD.programa && FD.programa[fecha] && FD.programa[fecha]['CORIRE'])  ? FD.programa[fecha]['CORIRE']  : {};
   var aplArr  = Object.values(aplData).sort(function(a,b){ return (a.horaSal||'').localeCompare(b.horaSal||''); });
   var corArr  = Object.values(corData).sort(function(a,b){ return (a.horaSal||'').localeCompare(b.horaSal||''); });
-
+  var showApl = _panelOrigen === 'APLAO' || _panelOrigen === 'AMBOS';
+  var showCor = _panelOrigen === 'CORIRE' || _panelOrigen === 'AMBOS';
   if (!aplArr.length && !corArr.length) {
-    panel.innerHTML = '<div style="color:var(--txt2);font-size:12px;padding:8px">Sin programa registrado hoy</div>';
+    panel.innerHTML = '<div style="color:var(--txt2);font-size:12px;padding:12px;text-align:center">📭 Sin programa registrado hoy<br><span style="font-size:10px">El supervisor aún no cargó el programa</span></div>';
     return;
   }
 
@@ -3156,16 +3201,20 @@ function renderProgramaChofer() {
     return h + '</tbody></table>';
   }
 
-  panel.innerHTML =
-    '<div style="font-size:11px;font-weight:800;letter-spacing:1px;margin-bottom:8px">📅 PROGRAMA HOY ' + fecha + '</div>' +
-    '<div style="margin-bottom:10px">' +
-      '<div style="font-size:11px;color:var(--amb);font-weight:800;margin-bottom:4px">🚌 APLAO → CORIRE (' + aplArr.length + ')</div>' +
+  var html = '';
+  if (showApl) {
+    html += '<div style="margin-bottom:12px">' +
+      '<div style="font-size:11px;color:var(--amb);font-weight:800;margin-bottom:6px;padding:6px 8px;background:rgba(251,191,36,.08);border-radius:6px">🚌 APLAO → CORIRE · ' + aplArr.length + ' salidas</div>' +
       tblHTML(aplArr, 'APLAO') +
-    '</div>' +
-    '<div>' +
-      '<div style="font-size:11px;color:var(--blu);font-weight:800;margin-bottom:4px">🚌 CORIRE → APLAO (' + corArr.length + ')</div>' +
+    '</div>';
+  }
+  if (showCor) {
+    html += '<div>' +
+      '<div style="font-size:11px;color:var(--blu);font-weight:800;margin-bottom:6px;padding:6px 8px;background:rgba(79,142,255,.08);border-radius:6px">🚌 CORIRE → APLAO · ' + corArr.length + ' salidas</div>' +
       tblHTML(corArr, 'CORIRE') +
     '</div>';
+  }
+  panel.innerHTML = html;
 }
 </script>
 
