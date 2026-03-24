@@ -682,6 +682,11 @@ tr:last-child td { border-bottom:none; }
       <div id="prog-chofer-panel">
         <div style="color:var(--txt2);font-size:12px;padding:12px;text-align:center">Cargando programa...</div>
       </div>
+      <!-- Foto del programa -->
+      <div id="prog-foto-chofer" style="display:none;margin-top:10px">
+        <img id="prog-foto-img" style="width:100%;border-radius:10px;max-height:280px;object-fit:cover">
+        <div id="prog-foto-comment" style="font-size:13px;color:var(--txt2);margin-top:6px;font-style:italic;text-align:center;padding:4px"></div>
+      </div>
     </div>
 
     <!-- ── MONITOR PANEL ── -->
@@ -913,9 +918,27 @@ tr:last-child td { border-bottom:none; }
               </div>
               <button class="btn btn-blue" onclick="addProgramaEntry()" style="padding:10px;font-size:13px">➕ Agregar</button>
             </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
               <button class="btn btn-ghost" onclick="clearProgramaDia()" style="padding:8px;font-size:12px">🗑 Limpiar día</button>
               <button class="btn btn-blue" onclick="exportProgramaCSV()" style="padding:8px;font-size:12px">📥 CSV</button>
+            </div>
+            <!-- FOTO + COMENTARIO -->
+            <div style="background:var(--ink);border-radius:10px;padding:12px">
+              <div style="font-size:10px;letter-spacing:1px;color:var(--txt2);margin-bottom:8px;font-weight:700">📷 FOTO + COMENTARIO DEL DÍA</div>
+              <div id="foto-preview-sup" style="margin-bottom:8px;display:none">
+                <img id="foto-img-sup" style="width:100%;border-radius:8px;max-height:200px;object-fit:cover">
+                <div id="foto-comment-sup" style="font-size:12px;color:var(--txt2);margin-top:4px;font-style:italic"></div>
+                <button onclick="deleteFotoPrograma()" style="margin-top:6px;background:rgba(255,68,102,.15);border:none;border-radius:6px;color:var(--red);font-size:11px;padding:4px 10px;cursor:pointer">🗑 Quitar foto</button>
+              </div>
+              <div id="foto-upload-area">
+                <input type="file" id="foto-input" accept="image/*" onchange="onFotoSelected(this)" style="display:none">
+                <button onclick="el('foto-input').click()" class="btn btn-ghost" style="padding:10px;font-size:13px;margin-bottom:8px">📷 Seleccionar foto</button>
+                <div class="field" style="margin:0">
+                  <label>COMENTARIO</label>
+                  <input type="text" id="foto-comment-input" placeholder="ej: Martes 24 marzo — turnos asignados" style="font-size:13px">
+                </div>
+                <button onclick="saveFotoPrograma()" class="btn btn-blue" style="padding:10px;font-size:13px;margin-top:8px">💾 Guardar foto</button>
+              </div>
             </div>
           </div>
           <!-- Hidden legacy fields for backward compat -->
@@ -1487,6 +1510,22 @@ function onGPSUpdate() {
   if (!tripActive && !gpsManualLock) {
     if (inZone('CORIRE')) setOrigenGPS('CORIRE');
     else if (inZone('APLAO')) setOrigenGPS('APLAO');
+    else {
+      // Fallback: auto-fill from programa if no GPS zone match
+      var sOrig = el('s-origen');
+      if (sOrig && !sOrig.value) {
+        var pfecha2 = today(); var u2 = parseInt(SESSION.unit);
+        ['APLAO','CORIRE'].forEach(function(orig2) {
+          var data2 = (FD.programa && FD.programa[pfecha2] && FD.programa[pfecha2][orig2]) ? FD.programa[pfecha2][orig2] : {};
+          Object.values(data2).forEach(function(v2) {
+            if (parseInt(v2.unit) === u2 && !sOrig.value) {
+              sOrig.value = orig2;
+              var hint = el('gps-hint'); if (hint) { hint.textContent = '📅 Auto-llenado desde programa'; hint.style.display = 'block'; }
+            }
+          });
+        });
+      }
+    }
   }
   updateGeoStatus();
   // Auto-trigger
@@ -1498,10 +1537,20 @@ function onGPSUpdate() {
   }
 }
 
+function autoFillHoraFromPrograma(orig) {
+  var hf = el('s-hora'); if (!hf || hf.dataset.manual) return;
+  var pfecha = today(); var u = parseInt(SESSION.unit);
+  var data = (FD.programa && FD.programa[pfecha] && FD.programa[pfecha][orig]) ? FD.programa[pfecha][orig] : {};
+  Object.values(data).forEach(function(v) {
+    if (parseInt(v.unit) === u && v.horaSal && !hf.value) { hf.value = v.horaSal; }
+  });
+}
+
 function setOrigenGPS(pt) {
   var sel = el('s-origen');
   if (!sel || sel.value === pt) return;
   sel.value = pt;
+  autoFillHoraFromPrograma(pt);
   var hint = el('gps-hint');
   if (hint) hint.style.display = 'block';
   onOrigenChange();
@@ -1578,6 +1627,17 @@ function registrarSalida() {
 
   fbSet('viajesActivos/' + u, LV);
   fbDel('viajesActivos/' + u + '/gpsSal'); // don't store GPS in active
+
+  // Stamp real departure in programa del dia
+  var pfecha = today();
+  ['APLAO','CORIRE'].forEach(function(orig) {
+    var data = (FD.programa && FD.programa[pfecha] && FD.programa[pfecha][orig]) ? FD.programa[pfecha][orig] : {};
+    Object.entries(data).forEach(function(kv) {
+      if (parseInt(kv[1].unit) === u && !kv[1].salidaReal) {
+        fbUpd('programaDia/' + pfecha + '/' + orig + '/' + kv[0], {salidaReal: hora});
+      }
+    });
+  });
 
   // UI
   el('s-hora').dataset.manual = '1';
@@ -3093,7 +3153,10 @@ function renderProgramaDia() {
         multaTxt = '✅'; multaColor = 'var(--grn)';
       }
     }
-    var rowStyle = idx % 2 === 0 ? '' : 'background:rgba(255,255,255,.02)';
+    var departed = !!e.salidaReal;
+    var rowStyle = departed
+      ? 'background:rgba(79,142,255,.08)'
+      : (idx % 2 === 0 ? '' : 'background:rgba(255,255,255,.02)');
     h += '<tr style="border-bottom:1px solid var(--wire);' + rowStyle + '">' +
       '<td style="padding:5px 4px;color:var(--txt2);font-family:var(--fm)">' + num + '</td>' +
       '<td style="padding:5px 4px;font-family:var(--fm);font-size:11px">' +
@@ -3113,6 +3176,7 @@ function renderProgramaDia() {
   });
   h += '</tbody></table>';
   list.innerHTML = h;
+  loadFotoPrograma();
 }
 
 function addProgramaEntry() {
@@ -3232,7 +3296,10 @@ function renderProgramaChofer() {
       h += '<tr style="border-bottom:1px solid var(--wire);' + rowBg + '">' +
         '<td style="padding:4px;font-family:var(--fm);color:var(--txt2)">' + (idx+1) + '</td>' +
         '<td style="padding:4px;font-family:var(--fm);font-size:11px;color:' + (e.horaIng?'var(--grn)':'var(--red)') + '">' + (e.horaIng||'--') + '</td>' +
-        '<td style="padding:4px;font-family:var(--fm);font-weight:700;color:' + (isMe?'var(--amb)':'var(--grn)') + '">' + (e.horaSal||'--') + '</td>' +
+        '<td style="padding:4px;font-family:var(--fm);font-weight:700;color:' + (isMe?'var(--amb)':'var(--grn)') + '">' +
+          (e.horaSal||'--') +
+          (e.salidaReal ? ' <span style="font-size:9px;color:var(--grn)">✓' + e.salidaReal + '</span>' : '') +
+        '</td>' +
         '<td style="padding:4px;font-size:10px;color:var(--txt2)">' + freq + '</td>' +
         '<td style="padding:4px"><span class="badge ' + (orig==='CORIRE'?'badge-blu':'badge-amb') + '">U' + pad(e.unit||0) + '</span>' + (isMe ? ' <span style="color:var(--blu);font-size:10px;font-weight:700">← YO</span>' : '') + '</td>' +
         '<td style="padding:4px;font-size:11px">' + (e.chofer||choferName(e.unit||0)) + '</td>' +
@@ -3307,6 +3374,92 @@ function registrarIngresoChofer() {
   });
   playSuccessBeeps();
   setTimeout(checkIngresoChofer, 800);
+}
+
+// ── FOTO PROGRAMA ──
+function onFotoSelected(input) {
+  if (!input.files || !input.files[0]) return;
+  var file = input.files[0];
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    // Compress image before storing
+    var img = new Image();
+    img.onload = function() {
+      var canvas = document.createElement('canvas');
+      var maxW = 800, maxH = 600;
+      var w = img.width, h = img.height;
+      if (w > maxW) { h = h * maxW / w; w = maxW; }
+      if (h > maxH) { w = w * maxH / h; h = maxH; }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      var b64 = canvas.toDataURL('image/jpeg', 0.75);
+      // Preview
+      var prev = el('foto-preview-sup');
+      var imgEl = el('foto-img-sup');
+      if (imgEl) imgEl.src = b64;
+      if (prev) prev.style.display = 'block';
+      window._fotoPendingB64 = b64;
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function saveFotoPrograma() {
+  if (!window._fotoPendingB64) { alert('Primero selecciona una foto'); return; }
+  var comment = el('foto-comment-input') ? el('foto-comment-input').value.trim() : '';
+  var fecha = progFecha();
+  var payload = {foto: window._fotoPendingB64, comment: comment, ts: Date.now()};
+  fbSet('programaDia/' + fecha + '/_foto', payload);
+  window._fotoPendingB64 = null;
+  el('foto-upload-area').style.display = 'none';
+  el('foto-preview-sup').style.display = 'block';
+  var cd = el('foto-comment-sup'); if (cd) cd.textContent = comment;
+  alert('✅ Foto guardada');
+}
+
+function deleteFotoPrograma() {
+  if (!confirm('¿Eliminar la foto?')) return;
+  fbDel('programaDia/' + progFecha() + '/_foto');
+  el('foto-preview-sup').style.display = 'none';
+  el('foto-upload-area').style.display = 'block';
+  window._fotoPendingB64 = null;
+}
+
+function loadFotoPrograma() {
+  var fecha = progFecha();
+  var fotoData = (FD.programa && FD.programa[fecha] && FD.programa[fecha]['_foto']) ? FD.programa[fecha]['_foto'] : null;
+  // Supervisor preview
+  var prev = el('foto-preview-sup');
+  var uploadArea = el('foto-upload-area');
+  var imgSup = el('foto-img-sup');
+  var commSup = el('foto-comment-sup');
+  if (prev && uploadArea) {
+    if (fotoData && fotoData.foto) {
+      if (imgSup) imgSup.src = fotoData.foto;
+      if (commSup) commSup.textContent = fotoData.comment || '';
+      prev.style.display = 'block';
+      uploadArea.style.display = 'none';
+    } else {
+      prev.style.display = 'none';
+      uploadArea.style.display = 'block';
+    }
+  }
+  // Chofer view
+  var fechaChofer = (el('prog-chofer-fecha') && el('prog-chofer-fecha').value) ? el('prog-chofer-fecha').value : today();
+  var fotoChofer = (FD.programa && FD.programa[fechaChofer] && FD.programa[fechaChofer]['_foto']) ? FD.programa[fechaChofer]['_foto'] : null;
+  var fotoPanel = el('prog-foto-chofer');
+  var fotoImg = el('prog-foto-img');
+  var fotoCom = el('prog-foto-comment');
+  if (fotoPanel) {
+    if (fotoChofer && fotoChofer.foto) {
+      if (fotoImg) fotoImg.src = fotoChofer.foto;
+      if (fotoCom) fotoCom.textContent = fotoChofer.comment || '';
+      fotoPanel.style.display = 'block';
+    } else {
+      fotoPanel.style.display = 'none';
+    }
+  }
 }
 </script>
 
