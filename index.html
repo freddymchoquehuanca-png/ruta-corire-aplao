@@ -305,6 +305,13 @@ tr:last-child td { border-bottom:none; }
 .route-line.done { background:var(--grn); }
 .route-line.active { background:linear-gradient(90deg,var(--grn),var(--blu)); }
 
+.btn-frec {
+  background:var(--ink3); border:1.5px solid var(--wire2); border-radius:8px;
+  color:var(--blu); font-size:11px; font-weight:700; padding:5px 10px;
+  cursor:pointer; transition:.15s;
+}
+.btn-frec:hover, .btn-frec.active { background:var(--blu); color:#fff; border-color:var(--blu); }
+
 /* MONITOR CARDS */
 .units-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:5px; margin-bottom:12px; }
 .uc {
@@ -898,25 +905,35 @@ tr:last-child td { border-bottom:none; }
             <div id="prog-list" style="margin-bottom:10px;max-height:320px;overflow-y:auto"></div>
             <div style="background:var(--ink);border-radius:10px;padding:12px;margin-bottom:10px">
               <div style="font-size:10px;letter-spacing:1px;color:var(--txt2);margin-bottom:8px;font-weight:700">➕ AGREGAR SALIDA</div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-                <div class="field" style="margin:0">
-                  <label>HORA SALIDA</label>
-                  <input type="time" id="prog-hora-sal" style="font-size:16px;color:var(--grn)">
+              <!-- FRECUENCIA RÁPIDA -->
+              <div style="margin-bottom:10px">
+                <div style="font-size:10px;color:var(--txt2);margin-bottom:5px">⚡ AUTO-HORA (frecuencia)</div>
+                <div style="display:flex;gap:6px;flex-wrap:wrap">
+                  <button onclick="setAutoFrec(5)"  class="btn-frec">5min</button>
+                  <button onclick="setAutoFrec(8)"  class="btn-frec">8min</button>
+                  <button onclick="setAutoFrec(10)" class="btn-frec">10min</button>
+                  <button onclick="setAutoFrec(15)" class="btn-frec">15min</button>
+                  <button onclick="setAutoFrec(20)" class="btn-frec">20min</button>
+                  <button onclick="setAutoFrec(0)"  class="btn-frec" id="btn-frec-manual" style="color:var(--txt2)">Manual</button>
+                </div>
+              </div>
+              <!-- INLINE QUICK ROW -->
+              <div style="display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:end;margin-bottom:8px">
+                <div class="field" style="margin:0;min-width:90px">
+                  <label>HORA SAL</label>
+                  <input type="time" id="prog-hora-sal" style="font-size:16px;color:var(--grn);width:100%">
                 </div>
                 <div class="field" style="margin:0">
-                  <label>UNIDAD</label>
-                  <select id="prog-unidad" onchange="var u=this.value; var n=el('prog-chofer-nom'); if(n&&u) n.value=choferName(parseInt(u));"></select>
+                  <label>UNIDAD / CHOFER</label>
+                  <select id="prog-unidad" onchange="onProgUnidadChange()" style="font-size:14px;width:100%"></select>
+                </div>
+                <div class="field" style="margin:0;min-width:80px">
+                  <label>INGRESO</label>
+                  <input type="time" id="prog-hora-ing" style="font-size:14px;color:var(--txt2);width:100%">
                 </div>
               </div>
-              <div class="field" style="margin:0 0 8px 0">
-                <label>CHOFER (nombre)</label>
-                <input type="text" id="prog-chofer-nom" placeholder="Nombre del chofer" style="font-size:14px">
-              </div>
-              <div class="field" style="margin:0 0 10px 0">
-                <label>HORA INGRESO (opcional)</label>
-                <input type="time" id="prog-hora-ing" style="font-size:15px;color:var(--txt2)">
-              </div>
-              <button class="btn btn-blue" onclick="addProgramaEntry()" style="padding:10px;font-size:13px">➕ Agregar</button>
+              <input type="hidden" id="prog-chofer-nom">
+              <button class="btn btn-blue" onclick="addProgramaEntryFast()" style="padding:12px;font-size:14px;font-weight:800">➕ AGREGAR</button>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
               <button class="btn btn-ghost" onclick="clearProgramaDia()" style="padding:8px;font-size:12px">🗑 Limpiar día</button>
@@ -1298,7 +1315,10 @@ function subscribeFB() {
     }
   });
   DB.ref('historialDia').on('value', function(s) {
-    FD.hist = s.val() || {};
+    var raw = s.val() || {};
+    // Store Firebase key in each entry
+    Object.keys(raw).forEach(function(k){ if (raw[k]) raw[k]._fbKey = k; });
+    FD.hist = raw;
     renderHistChofer();
     renderHistSup();
     if (SESSION.role === 'chofer' && !tripActive) checkRetomar();
@@ -3182,7 +3202,29 @@ function renderProgramaDia() {
   loadFotoPrograma();
 }
 
-function addProgramaEntry() {
+var _autoFrec = 0; // 0 = manual
+
+function setAutoFrec(min) {
+  _autoFrec = min;
+  // Highlight active button
+  document.querySelectorAll('.btn-frec').forEach(function(b){ b.classList.remove('active'); });
+  if (min === 0) { var mb = el('btn-frec-manual'); if (mb) mb.classList.add('active'); }
+  else {
+    document.querySelectorAll('.btn-frec').forEach(function(b){
+      if (b.textContent === min+'min') b.classList.add('active');
+    });
+  }
+}
+
+function onProgUnidadChange() {
+  var u = el('prog-unidad') ? el('prog-unidad').value : '';
+  var n = el('prog-chofer-nom');
+  if (n && u) n.value = choferName(parseInt(u));
+}
+
+function addProgramaEntry() { addProgramaEntryFast(); }
+
+function addProgramaEntryFast() {
   var origen  = progOrigen();
   var horaSal = el('prog-hora-sal') ? el('prog-hora-sal').value : '';
   var unitVal = el('prog-unidad')   ? el('prog-unidad').value   : '';
@@ -3203,11 +3245,25 @@ function addProgramaEntry() {
 
   fbPush(progPath(origen), entry);
 
-  // Clear form fields
-  if (el('prog-hora-sal'))   el('prog-hora-sal').value   = '';
+  // Auto-advance hora if frecuencia set
+  if (_autoFrec > 0) {
+    var parts = horaSal.split(':');
+    var totalMin = parseInt(parts[0])*60 + parseInt(parts[1]) + _autoFrec;
+    var nextH = Math.floor(totalMin/60) % 24;
+    var nextM = totalMin % 60;
+    var nextHora = pad(nextH) + ':' + pad(nextM);
+    if (el('prog-hora-sal')) el('prog-hora-sal').value = nextHora;
+  } else {
+    if (el('prog-hora-sal')) el('prog-hora-sal').value = '';
+  }
+
+  // Clear ingreso and reset unit
   if (el('prog-hora-ing'))   el('prog-hora-ing').value   = '';
-  if (el('prog-chofer-nom')) el('prog-chofer-nom').value = '';
-  if (el('prog-unidad'))     el('prog-unidad').value     = '';
+  if (el('prog-unidad'))     el('prog-unidad').value      = '';
+  if (el('prog-chofer-nom')) el('prog-chofer-nom').value  = '';
+
+  // Focus back to unidad for fast next entry
+  setTimeout(function(){ var sel = el('prog-unidad'); if (sel) sel.focus(); }, 100);
 }
 
 function regIngresoProg(key) {
@@ -3272,164 +3328,189 @@ function renderProgramaChofer() {
   var pcf = el('prog-chofer-fecha');
   if (pcf && !pcf.value) pcf.value = today();
   var fecha = (pcf && pcf.value) ? pcf.value : today();
-  var lbl = el('prog-fecha-lbl'); if (lbl) lbl.textContent = fecha;
 
   var aplData = (FD.programa && FD.programa[fecha] && FD.programa[fecha]['APLAO'])  ? FD.programa[fecha]['APLAO']  : {};
   var corData = (FD.programa && FD.programa[fecha] && FD.programa[fecha]['CORIRE']) ? FD.programa[fecha]['CORIRE'] : {};
-
-  // Merge all entries with origen tag, sorted by horaSal
-  var all = [];
-  Object.entries(aplData).forEach(function(e){ if (e[0]!=='_foto') all.push(Object.assign({_orig:'APLAO', _key:e[0]}, e[1])); });
-  Object.entries(corData).forEach(function(e){ if (e[0]!=='_foto') all.push(Object.assign({_orig:'CORIRE', _key:e[0]}, e[1])); });
-  all.sort(function(a,b){ return (a.horaSal||'').localeCompare(b.horaSal||''); });
+  var aplArr = Object.entries(aplData).filter(function(e){ return e[0]!=='_foto'; }).map(function(e){ return Object.assign({_orig:'APLAO',_key:e[0]},e[1]); });
+  var corArr = Object.entries(corData).filter(function(e){ return e[0]!=='_foto'; }).map(function(e){ return Object.assign({_orig:'CORIRE',_key:e[0]},e[1]); });
+  aplArr.sort(function(a,b){ return (a.horaSal||'').localeCompare(b.horaSal||''); });
+  corArr.sort(function(a,b){ return (a.horaSal||'').localeCompare(b.horaSal||''); });
 
   var myUnit = parseInt(SESSION.unit);
+  var t = now(); var nowMin = t.h*60+t.m;
+  var isToday = fecha === today();
   var showOrig = _panelOrigen !== 'AMBOS' ? _panelOrigen : null;
-  var filtered = showOrig ? all.filter(function(e){ return e._orig === showOrig; }) : all;
 
-  if (!filtered.length) {
-    panel.innerHTML = '<div style="color:var(--txt2);font-size:12px;padding:16px;text-align:center">📭 Sin programa registrado hoy<br><span style="font-size:10px">El supervisor aún no cargó el programa</span></div>';
-    loadFotoPrograma(); return;
+  // Find next departure index
+  function nextIdx(arr) {
+    for (var i=0; i<arr.length; i++) {
+      if (!arr[i].salidaReal && txtToMin(arr[i].horaSal||'00:00') >= nowMin) return i;
+    }
+    return -1;
   }
 
-  // ── Build notebook-style table ──
-  var t = now();
-  var nowMin = t.h * 60 + t.m;
+  function buildTable(arr, orig) {
+    if (!arr.length) return '<div style="color:var(--txt2);font-size:12px;padding:14px;text-align:center;background:var(--ink3);border-radius:8px">Sin salidas programadas</div>';
 
-  var html = '<table style="width:100%;border-collapse:collapse">' +
-    '<thead>' +
-    '<tr style="background:var(--ink3);border-bottom:2px solid var(--wire)">' +
-    '<th style="padding:7px 5px;font-size:10px;color:var(--txt2);font-weight:700;text-align:center">#</th>' +
-    '<th style="padding:7px 5px;font-size:10px;color:var(--txt2);font-weight:700;text-align:left">CHOFER</th>' +
-    '<th style="padding:7px 5px;font-size:10px;color:var(--txt2);font-weight:700;text-align:center">SALIDA</th>' +
-    '<th style="padding:7px 5px;font-size:10px;color:var(--txt2);font-weight:700;text-align:center">INGRESO</th>' +
-    '<th style="padding:7px 5px;font-size:10px;color:var(--txt2);font-weight:700;text-align:center">FREC</th>' +
-    '<th style="padding:7px 5px;font-size:10px;color:var(--txt2);font-weight:700;text-align:center">ORIG</th>' +
-    '</tr></thead><tbody>';
+    var salidos   = arr.filter(function(e){ return !!e.salidaReal; }).length;
+    var pendientes = arr.length - salidos;
+    var nextI     = isToday ? nextIdx(arr) : -1;
 
-  filtered.forEach(function(e, idx) {
-    var isMe = myUnit && parseInt(e.unit) === myUnit;
-    var salMin = txtToMin(e.horaSal || '00:00');
-    var isPast = salMin < nowMin && fecha === today();
-    var hasSalReal = !!e.salidaReal;
+    // Summary chips
+    var summ = '<div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">' +
+      '<span style="background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.4);border-radius:20px;padding:4px 10px;font-size:11px;font-weight:700;color:var(--grn)">✅ ' + salidos + ' salieron</span>' +
+      '<span style="background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.4);border-radius:20px;padding:4px 10px;font-size:11px;font-weight:700;color:var(--amb)">⏳ ' + pendientes + ' pendientes</span>' +
+      (nextI >= 0 ? '<span style="background:rgba(79,142,255,.15);border:1px solid var(--blu);border-radius:20px;padding:4px 10px;font-size:11px;font-weight:700;color:var(--blu)">🔜 ' + (arr[nextI].horaSal) + ' próximo</span>' : '') +
+      '</div>';
 
-    // Row style
-    var rowBg = isMe
-      ? 'background:rgba(79,142,255,.15)'
-      : hasSalReal
-        ? 'background:rgba(34,197,94,.06);opacity:.85'
-        : isPast && !hasSalReal
-          ? 'background:rgba(255,68,102,.06)'
-          : (idx % 2 === 0 ? '' : 'background:rgba(255,255,255,.025)');
+    var rows = '';
+    arr.forEach(function(e, idx) {
+      var isMe     = myUnit && parseInt(e.unit) === myUnit;
+      var salMin   = txtToMin(e.horaSal||'00:00');
+      var isPast   = isToday && salMin < nowMin;
+      var isNext   = idx === nextI;
+      var hasSal   = !!e.salidaReal;
+      var ingMin   = e.horaIng ? txtToMin(e.horaIng) : -1;
+      var ingOk    = ingMin >= 0 && ingMin < salMin;
+      var ingLate  = ingMin >= 0 && ingMin >= salMin;
+      var freq     = '--';
+      if (idx > 0) { var d = salMin - txtToMin(arr[idx-1].horaSal||'00:00'); if (d>0) freq=d+'min'; }
 
-    // Frequency vs previous
-    var freq = '--';
-    if (idx > 0) {
-      var prevMin = txtToMin(filtered[idx-1].horaSal || '00:00');
-      var diff = salMin - prevMin;
-      if (diff > 0) freq = diff + 'min';
-    }
+      // Row background
+      var rowBg = isMe      ? 'background:rgba(79,142,255,.13);border-left:3px solid var(--blu)' :
+                  isNext    ? 'background:rgba(251,191,36,.08);border-left:3px solid var(--amb)' :
+                  hasSal    ? 'background:rgba(34,197,94,.05)' :
+                  isPast    ? 'background:rgba(255,68,102,.04)' :
+                  (idx%2===0 ? '' : 'background:rgba(255,255,255,.02)');
 
-    // Ingreso display
-    var ingTxt = '';
-    var ingColor = 'var(--txt2)';
-    if (e.horaIng) {
-      var ingMin = txtToMin(e.horaIng);
-      ingColor = ingMin < salMin ? 'var(--grn)' : 'var(--amb)';
-      ingTxt = '(' + e.horaIng + ')';
-    } else if (isPast) {
-      ingTxt = '--'; ingColor = 'var(--red)';
-    }
-
-    // Salida real tick
-    var salTxt = '<strong style="color:' + (hasSalReal?'var(--grn)':isPast?'var(--red)':'var(--txt)') + ';font-family:var(--fm);font-size:14px">' + (e.horaSal||'--') + '</strong>';
-    if (hasSalReal) salTxt += '<br><span style="font-size:9px;color:var(--grn)">✓' + e.salidaReal + '</span>';
-
-    html +=
-      '<tr style="border-bottom:1px solid var(--wire);' + rowBg + (isMe?';font-weight:700':'') + '">' +
-      '<td style="padding:8px 5px;text-align:center;color:var(--txt2);font-size:12px">' + (idx+1) + '</td>' +
-      '<td style="padding:8px 5px">' +
-        '<div style="font-size:13px;font-weight:' + (isMe?'800':'600') + ';color:' + (isMe?'var(--blu)':'var(--txt)') + '">' +
-          (e.chofer || choferName(e.unit||0)) +
-          (isMe ? ' <span style="font-size:10px;color:var(--blu)">← YO</span>' : '') +
+      // Name + unit
+      var nameCell = '<div style="font-size:14px;font-weight:' + (isMe||isNext?'800':'600') + ';color:' + (isMe?'var(--blu)':isNext?'var(--amb)':'var(--txt)') + ';line-height:1.2">' +
+        (e.chofer||choferName(e.unit||0)) +
+        (isMe  ? ' <span style="font-size:9px;font-weight:700;background:var(--blu);color:#fff;padding:1px 5px;border-radius:10px">YO</span>' : '') +
+        (isNext && !isMe ? ' <span style="font-size:9px;font-weight:700;background:var(--amb);color:#000;padding:1px 5px;border-radius:10px">PRÓX</span>' : '') +
         '</div>' +
-        '<div style="font-size:10px;color:var(--txt2)">U' + pad(e.unit||0) + '</div>' +
-      '</td>' +
-      '<td style="padding:8px 5px;text-align:center">' + salTxt + '</td>' +
-      '<td style="padding:8px 5px;text-align:center;font-family:var(--fm);font-size:13px;color:' + ingColor + '">' +
-        (ingTxt || '<span style="color:var(--wire2)">--</span>') +
-      '</td>' +
-      '<td style="padding:8px 5px;text-align:center;font-size:11px;color:var(--txt2)">' + freq + '</td>' +
-      '<td style="padding:8px 5px;text-align:center">' +
-        '<span class="badge ' + (e._orig==='CORIRE'?'badge-blu':'badge-amb') + '" style="font-size:9px">' + (e._orig==='CORIRE'?'COR':'APL') + '</span>' +
-      '</td>' +
-      '</tr>';
-  });
+        '<div style="font-size:10px;color:var(--txt2)">U'+pad(e.unit||0)+'</div>';
 
-  html += '</tbody></table>';
+      // Salida cell
+      var salCell = '<div style="font-family:var(--fm);font-size:15px;font-weight:800;color:' + (hasSal?'var(--grn)':isPast?'var(--red)':'var(--txt)') + ';line-height:1.2">' + (e.horaSal||'--') + '</div>' +
+        (hasSal ? '<div style="font-size:9px;color:var(--grn)">✓ sal '+e.salidaReal+'</div>' : '') +
+        (!hasSal && isPast ? '<div style="font-size:9px;color:var(--red)">sin salida</div>' : '');
 
-  // Summary row
-  var salidos = filtered.filter(function(e){ return !!e.salidaReal; }).length;
-  var pendientes = filtered.length - salidos;
-  html = '<div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">' +
-    '<div style="background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.3);border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;color:var(--grn)">✅ ' + salidos + ' salieron</div>' +
-    '<div style="background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;color:var(--amb)">⏳ ' + pendientes + ' pendientes</div>' +
-    '<div style="background:var(--ink3);border:1px solid var(--wire);border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;color:var(--txt2)">📋 ' + filtered.length + ' total</div>' +
-    '</div>' + html;
+      // Ingreso cell
+      var ingCell = ingOk   ? '<div style="font-family:var(--fm);font-size:13px;color:var(--grn);font-weight:700">' + e.horaIng + '</div><div style="font-size:9px;color:var(--grn)">✅ a tiempo</div>' :
+                   ingLate  ? '<div style="font-family:var(--fm);font-size:13px;color:var(--amb);font-weight:700">' + e.horaIng + '</div><div style="font-size:9px;color:var(--amb)">S/10 tarde</div>' :
+                   isPast   ? '<div style="font-size:12px;color:var(--red)">--</div><div style="font-size:9px;color:var(--red)">S/20</div>' :
+                              '<div style="font-size:11px;color:var(--wire2)">--</div>';
 
-  // ── VIAJES REALIZADOS HOY ──
+      rows += '<tr style="border-bottom:1px solid var(--wire);' + rowBg + '">' +
+        '<td style="padding:8px 4px;text-align:center;font-size:11px;color:var(--txt2);font-weight:700">' + (idx+1) + '</td>' +
+        '<td style="padding:8px 6px">' + nameCell + '</td>' +
+        '<td style="padding:8px 4px;text-align:center">' + salCell + '</td>' +
+        '<td style="padding:8px 4px;text-align:center">' + ingCell + '</td>' +
+        '<td style="padding:8px 4px;text-align:center;font-size:11px;color:var(--txt2)">' + freq + '</td>' +
+        '</tr>';
+    });
+
+    return summ +
+      '<div style="border-radius:10px;overflow:hidden;border:1px solid var(--wire)">' +
+      '<table style="width:100%;border-collapse:collapse">' +
+      '<thead><tr style="background:var(--ink3)">' +
+      '<th style="padding:7px 4px;font-size:10px;color:var(--txt2);font-weight:700;text-align:center;width:28px">#</th>' +
+      '<th style="padding:7px 6px;font-size:10px;color:var(--txt2);font-weight:700;text-align:left">CHOFER</th>' +
+      '<th style="padding:7px 4px;font-size:10px;color:var(--txt2);font-weight:700;text-align:center">SALIDA</th>' +
+      '<th style="padding:7px 4px;font-size:10px;color:var(--txt2);font-weight:700;text-align:center">INGRESO</th>' +
+      '<th style="padding:7px 4px;font-size:10px;color:var(--txt2);font-weight:700;text-align:center">FREC</th>' +
+      '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+  }
+
+  var html = '';
+
+  if (!showOrig || showOrig === 'APLAO') {
+    html += '<div style="margin-bottom:16px">' +
+      '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:linear-gradient(135deg,rgba(251,191,36,.15),rgba(251,191,36,.05));border-radius:8px;margin-bottom:8px">' +
+        '<span style="font-size:20px">🚌</span>' +
+        '<div><div style="font-size:12px;font-weight:800;color:var(--amb)">APLAO → CORIRE</div>' +
+        '<div style="font-size:10px;color:var(--txt2)">' + aplArr.length + ' salidas programadas</div></div>' +
+      '</div>' + buildTable(aplArr,'APLAO') + '</div>';
+  }
+
+  if (!showOrig || showOrig === 'CORIRE') {
+    html += '<div style="margin-bottom:16px">' +
+      '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:linear-gradient(135deg,rgba(79,142,255,.15),rgba(79,142,255,.05));border-radius:8px;margin-bottom:8px">' +
+        '<span style="font-size:20px">🚌</span>' +
+        '<div><div style="font-size:12px;font-weight:800;color:var(--blu)">CORIRE → APLAO</div>' +
+        '<div style="font-size:10px;color:var(--txt2)">' + corArr.length + ' salidas programadas</div></div>' +
+      '</div>' + buildTable(corArr,'CORIRE') + '</div>';
+  }
+
+  if (!aplArr.length && !corArr.length) {
+    html = '<div style="color:var(--txt2);font-size:13px;padding:24px;text-align:center;background:var(--ink3);border-radius:12px">' +
+      '📭 Sin programa registrado hoy<br><span style="font-size:11px;margin-top:4px;display:block">El supervisor aún no cargó el programa</span></div>';
+  }
+
+  // ── MIS VIAJES HOY ──
   var histAll = Object.values(FD.hist || {});
-  var histHoy = histAll.filter(function(v){ return v.fecha === fecha; });
-  if (histHoy.length > 0) {
-    var byUnit = {};
-    histHoy.forEach(function(v) {
-      var u = parseInt(v.unit || v.unidad || 0); if (!u) return;
-      if (!byUnit[u]) byUnit[u] = [];
-      byUnit[u].push(v);
-    });
-    Object.keys(byUnit).forEach(function(u){ byUnit[u].sort(function(a,b){ return (a.salida||'').localeCompare(b.salida||''); }); });
-    var unitKeys = Object.keys(byUnit).map(Number).sort(function(a,b){ return a-b; });
+  var misViajes = histAll.filter(function(v){
+    return v.fecha === fecha && parseInt(v.unit||v.unidad||0) === myUnit;
+  });
+  misViajes.sort(function(a,b){ return (a.salida||'').localeCompare(b.salida||''); });
 
-    html += '<div style="margin-top:14px">' +
-      '<div style="font-size:11px;font-weight:800;letter-spacing:1px;color:var(--txt2);margin-bottom:8px;padding:7px 10px;background:var(--ink3);border-radius:8px">🚌 VIAJES REALIZADOS HOY · ' + histHoy.length + ' viajes</div>';
-
-    unitKeys.forEach(function(u) {
-      var trips = byUnit[u]; var isMe2 = u === myUnit;
-      html +=
-        '<div style="margin-bottom:10px;' + (isMe2?'border:1.5px solid var(--blu);border-radius:10px;padding:8px;':'') + '">' +
-        '<div style="font-size:12px;font-weight:800;margin-bottom:5px;color:' + (isMe2?'var(--blu)':'var(--txt)') + '">' +
-          'U' + pad(u) + ' · ' + choferName(u) + (isMe2?' ← YO':'') +
-          ' <span style="font-size:11px;font-weight:600;color:var(--txt2)">· ' + trips.length + ' viaje' + (trips.length>1?'s':'') + '</span>' +
+  if (myUnit && misViajes.length > 0) {
+    var totalTard = misViajes.reduce(function(s,v){ return s+(v.tardTotal||v.tardanza||0); }, 0);
+    var totalMulA = misViajes.reduce(function(s,v){
+      var t=v.tardTotal||v.tardanza||0; return s+(v.multa!==undefined?v.multa:(t>20?20:t));
+    }, 0);
+    html += '<div style="margin-top:4px">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:linear-gradient(135deg,rgba(79,142,255,.12),rgba(79,142,255,.04));border-radius:8px;margin-bottom:8px">' +
+        '<div><div style="font-size:12px;font-weight:800;color:var(--blu)">📋 MIS VIAJES HOY · U'+pad(myUnit)+'</div>' +
+        '<div style="font-size:10px;color:var(--txt2)">' + misViajes.length + ' viajes realizados</div></div>' +
+        '<div style="text-align:right">' +
+          (totalMulA > 0 ? '<div style="font-size:13px;font-weight:800;color:var(--red)">S/'+totalMulA+' multa</div>' : '<div style="font-size:13px;font-weight:800;color:var(--grn)">✅ Sin multa</div>') +
+          (totalTard > 0 ? '<div style="font-size:10px;color:var(--amb)">+'+totalTard+'min total</div>' : '') +
         '</div>' +
-        '<table style="width:100%;border-collapse:collapse;font-size:11px">' +
-        '<thead><tr style="color:var(--txt2);font-size:10px;border-bottom:1px solid var(--wire)">' +
-        '<th style="padding:3px 5px">#</th><th style="padding:3px 5px">ORIG</th>' +
-        '<th style="padding:3px 5px">SAL</th><th style="padding:3px 5px">MAM</th>' +
-        '<th style="padding:3px 5px">DEST</th><th style="padding:3px 5px">LLE</th>' +
-        '<th style="padding:3px 5px">TARD</th></tr></thead><tbody>';
-      trips.forEach(function(v, ti) {
-        var tard = v.tardTotal || v.tardanza || 0;
-        var tc = tard > 20 ? 'var(--red)' : tard > 0 ? 'var(--amb)' : 'var(--grn)';
-        var tt = tard > 20 ? '🚫S/20' : tard > 0 ? '+'+tard+'m' : '✅';
-        html +=
-          '<tr style="border-bottom:1px solid var(--wire);' + (ti%2?'background:rgba(255,255,255,.02)':'') + '">' +
-          '<td style="padding:3px 5px;color:var(--txt2)">' + (ti+1) + '</td>' +
-          '<td style="padding:3px 5px"><span class="badge ' + (v.origen==='CORIRE'?'badge-blu':'badge-amb') + '" style="font-size:9px">' + (v.origen||'?') + '</span></td>' +
-          '<td style="padding:3px 5px;font-family:var(--fm)">' + (v.salida||'--') + '</td>' +
-          '<td style="padding:3px 5px;font-family:var(--fm)">' + (v.mamasHora||'--') + '</td>' +
-          '<td style="padding:3px 5px"><span class="badge ' + (v.dest==='APLAO'?'badge-amb':'badge-blu') + '" style="font-size:9px">' + (v.dest||'?') + '</span></td>' +
-          '<td style="padding:3px 5px;font-family:var(--fm)">' + (v.llegada||'--') + '</td>' +
-          '<td style="padding:3px 5px;font-family:var(--fm);color:' + tc + ';font-weight:700">' + tt + '</td>' +
-          '</tr>';
-      });
-      html += '</tbody></table></div>';
+      '</div>' +
+      '<div style="border-radius:10px;overflow:hidden;border:1px solid var(--wire)">' +
+      '<table style="width:100%;border-collapse:collapse">' +
+      '<thead><tr style="background:var(--ink3)">' +
+      '<th style="padding:6px 4px;font-size:10px;color:var(--txt2);text-align:center">#</th>' +
+      '<th style="padding:6px 4px;font-size:10px;color:var(--txt2);text-align:center">ORIG</th>' +
+      '<th style="padding:6px 4px;font-size:10px;color:var(--txt2);text-align:center">SAL</th>' +
+      '<th style="padding:6px 4px;font-size:10px;color:var(--txt2);text-align:center">MAM</th>' +
+      '<th style="padding:6px 4px;font-size:10px;color:var(--txt2);text-align:center">LLE</th>' +
+      '<th style="padding:6px 4px;font-size:10px;color:var(--txt2);text-align:center">TARD</th>' +
+      '<th style="padding:6px 4px;font-size:10px;color:var(--txt2);text-align:left">NOTA</th>' +
+      '</tr></thead><tbody>';
+    misViajes.forEach(function(v, ti) {
+      var tard = v.tardTotal||v.tardanza||0;
+      var mul  = v.multa!==undefined ? v.multa : (tard>20?20:tard);
+      var tc   = mul>0 ? (tard>20?'var(--red)':'var(--amb)') : 'var(--grn)';
+      var tt   = tard>20 ? '🚫 S/20' : tard>0 ? '+'+tard+'m·S/'+mul : '✅';
+      var nota = (v.nota||'').replace(/"/g,'&quot;');
+      html +=
+        '<tr style="border-bottom:1px solid var(--wire);' + (ti%2?'background:rgba(255,255,255,.02)':'') + '">' +
+        '<td style="padding:7px 4px;color:var(--txt2);text-align:center;font-size:11px">'+(ti+1)+'</td>'+
+        '<td style="padding:7px 4px;text-align:center"><span class="badge '+(v.origen==='CORIRE'?'badge-blu':'badge-amb')+'" style="font-size:9px">'+(v.origen||'?')+'</span></td>'+
+        '<td style="padding:7px 4px;font-family:var(--fm);font-size:12px;text-align:center">'+(v.salida||'--')+'</td>'+
+        '<td style="padding:7px 4px;font-family:var(--fm);font-size:12px;text-align:center">'+(v.mamasHora||'--')+'</td>'+
+        '<td style="padding:7px 4px;font-family:var(--fm);font-size:12px;text-align:center">'+(v.llegada||'--')+'</td>'+
+        '<td style="padding:7px 4px;font-family:var(--fm);font-size:11px;text-align:center;color:'+tc+';font-weight:700">'+tt+'</td>'+
+        '<td style="padding:7px 4px">' +
+          '<input type="text" placeholder="Nota..." value="'+nota+'" onchange="saveNotaViaje(\''+(v._fbKey||'')+'\',this.value)" ' +
+          'style="width:100%;min-width:70px;background:var(--ink);border:1px solid var(--wire);border-radius:6px;color:var(--txt);font-size:11px;padding:4px 6px;outline:none">' +
+        '</td>'+
+        '</tr>';
     });
-    html += '</div>';
+    html += '</tbody></table></div></div>';
   }
 
   panel.innerHTML = html;
   loadFotoPrograma();
-}// ── INGRESO CHOFER ──
+}
+function saveNotaViaje(fbKey, nota) {
+  if (!fbKey) return;
+  fbUpd('historialDia/' + fbKey, {nota: nota});
+}
+// ── INGRESO CHOFER ──
 function checkIngresoChofer() {
   var card = el('ingreso-card');
   if (!card || SESSION.role !== 'chofer') return;
