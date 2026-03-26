@@ -2322,7 +2322,7 @@ function renderMonitor() {
   // Tardanza alerts
   var alerts = el('monitor-alerts');
   if (alerts) {
-    var alH = activos.filter(function(e){ return Math.max(0,t.min-e[1].esperMin)>0; }).map(function(e) {
+    var alH = activos.filter(function(e){ var tard=Math.max(0,t.min-e[1].esperMin); return tard>0 && tard<=20; }).map(function(e) {
       var u=e[0],v=e[1], tard=Math.max(0,t.min-v.esperMin);
       return '<div style="background:rgba(255,68,102,.08);border:1px solid rgba(255,68,102,.3);border-radius:8px;padding:9px 12px;display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">' +
         '<span style="font-weight:700">⚠ U' + pad(u) + ' · ' + choferName(u) + ' · +' + tard + 'min</span>' +
@@ -2425,6 +2425,8 @@ function updateMonitorCards() {
     var stEl = el('uc-st-' + i);
     if (stEl) {
       if (tard > 20) {
+        // AUTO-REMOVE: 20+ min late = NO MARCADO → remove from active monitor
+        autoRemoveNoMarcado(i, v, t);
         stEl.textContent = '🚫 S/20';
         stEl.style.color = 'var(--red)';
         card.className = 'uc tarde';
@@ -2440,6 +2442,35 @@ function updateMonitorCards() {
     }
   }
   updateSVG();
+}
+
+// Auto-remove units that exceeded 20min tardanza from active monitor
+var _removedUnits = {}; // track already-removed to avoid repeat calls
+
+function autoRemoveNoMarcado(unit, v, t) {
+  var key = String(unit) + '_' + (v.salida||'');
+  if (_removedUnits[key]) return; // already processed
+  _removedUnits[key] = true;
+
+  // Save to historialDia with noMarcado flag and S/20 fine
+  var tardTotal = Math.max(0, t.min - (v.esperMin||0));
+  var viaje = Object.assign({}, v, {
+    llegada:   '--',
+    tardLleg:  tardTotal,
+    tardTotal: tardTotal,
+    multa:     20,
+    noMarcado: true,
+    destFinal: v.dest,
+    fecha:     today(),
+    done:      Date.now()
+  });
+  // Push to historialDia
+  fbPush('historialDia', viaje);
+  // Remove from active
+  fbDel('viajesActivos/' + unit);
+
+  // Update FD.active locally
+  delete FD.active[unit];
 }
 
 function updateSVG() {
