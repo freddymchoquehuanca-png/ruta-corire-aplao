@@ -935,9 +935,10 @@ tr:last-child td { border-bottom:none; }
               <input type="hidden" id="prog-chofer-nom">
               <button class="btn btn-blue" onclick="addProgramaEntryFast()" style="padding:12px;font-size:14px;font-weight:800">➕ AGREGAR</button>
             </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
-              <button class="btn btn-ghost" onclick="clearProgramaDia()" style="padding:8px;font-size:12px">🗑 Limpiar día</button>
-              <button class="btn btn-blue" onclick="exportProgramaCSV()" style="padding:8px;font-size:12px">📥 CSV</button>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px">
+              <button class="btn btn-ghost" onclick="clearProgramaDia()" style="padding:8px;font-size:11px">🗑 Limpiar</button>
+              <button class="btn btn-blue" onclick="exportProgramaCSV()" style="padding:8px;font-size:11px">📥 CSV</button>
+              <button class="btn" onclick="copiarDiaAnterior()" style="padding:8px;font-size:11px;background:rgba(251,191,36,.15);border:1.5px solid var(--amb);color:var(--amb);border-radius:10px;cursor:pointer;font-weight:700">📋 Copiar ayer</button>
             </div>
             <!-- FOTO + COMENTARIO -->
             <div style="background:var(--ink);border-radius:10px;padding:12px">
@@ -1468,6 +1469,14 @@ function startApp() {
   if (pu) { var oh='<option value="">-- Unidad --</option>'; for(var i=1;i<=N;i++) oh+='<option value="'+i+'">U'+pad(i)+'</option>'; pu.innerHTML=oh; }
 }
 
+function scrollToCard(cardId) {
+  var card = el(cardId);
+  if (!card) return;
+  setTimeout(function() {
+    card.scrollIntoView({behavior: 'smooth', block: 'start'});
+  }, 100);
+}
+
 function showPanel(id, btn) {
   document.querySelectorAll('.panel').forEach(function(p){ p.classList.remove('active'); });
   document.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('active'); });
@@ -1710,6 +1719,7 @@ function registrarMamas() {
   el('card-3').className = 'step-card active-step';
   el('cd-mamas').classList.remove('visible');
   el('cd-dest').classList.add('visible');
+  setTimeout(function(){ scrollToCard('card-3'); }, 300);
   updateRouteBar();
   updateGeoStatus();
   setAlert('alert-2', '');
@@ -1853,6 +1863,9 @@ function doRetomar() {
   startCountdown();
   updateGeoStatus();
   setAlert('alert-1', '▶ Viaje retomado · ' + LV.origen + '→' + LV.dest + ' · Salida ' + LV.salida, 'ok');
+  // Scroll to active step
+  if (LV.mamasHora) scrollToCard('card-3');
+  else scrollToCard('card-2');
 }
 
 function doCancelarRetomar() {
@@ -3298,8 +3311,18 @@ function addProgramaEntryFast() {
 }
 
 function regIngresoProg(key) {
+  // Show time input — default to current time but supervisor can correct it
   var t = now();
-  fbUpd(progPath(progOrigen()) + '/' + key, {horaIng: t.txt});
+  var defaultTime = pad(t.h) + ':' + pad(t.m);
+  var horaReal = prompt('Hora de ingreso del chofer (puedes corregirla):', defaultTime);
+  if (!horaReal) return;
+  // Validate HH:MM format
+  if (!/^\d{1,2}:\d{2}$/.test(horaReal)) { alert('Formato incorrecto. Usa HH:MM (ej: 05:35)'); return; }
+  var parts = horaReal.split(':');
+  var h = parseInt(parts[0]), m = parseInt(parts[1]);
+  if (h < 0 || h > 23 || m < 0 || m > 59) { alert('Hora invalida'); return; }
+  var horaFmt = pad(h) + ':' + pad(m);
+  fbUpd(progPath(progOrigen()) + '/' + key, {horaIng: horaFmt});
 }
 
 function delProgramaEntry(key) {
@@ -3310,6 +3333,53 @@ function delProgramaEntry(key) {
 function clearProgramaDia() {
   if (!confirm('¿Limpiar todo el programa de ' + progOrigen() + ' del día ' + progFecha() + '?')) return;
   fbDel(progPath(progOrigen()));
+}
+
+function copiarDiaAnterior() {
+  var origen  = progOrigen();
+  var fecha   = progFecha();
+
+  // Calculate yesterday
+  var parts = fecha.split('-');
+  var d = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
+  d.setDate(d.getDate() - 1);
+  var ayer = d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate());
+
+  // Check if yesterday has data
+  var ayerData = (FD.programa && FD.programa[ayer] && FD.programa[ayer][origen]) ? FD.programa[ayer][origen] : {};
+  var entradas = Object.entries(ayerData).filter(function(e){ return e[0] !== '_foto'; });
+
+  if (!entradas.length) {
+    alert('No hay programa de ayer (' + ayer + ') para ' + origen + '. Asegurate de que el origen seleccionado coincida.');
+    return;
+  }
+
+  // Check if today already has data
+  var hoyData = (FD.programa && FD.programa[fecha] && FD.programa[fecha][origen]) ? FD.programa[fecha][origen] : {};
+  var hoyEntradas = Object.entries(hoyData).filter(function(e){ return e[0] !== '_foto'; });
+
+  if (hoyEntradas.length > 0) {
+    if (!confirm('Ya hay ' + hoyEntradas.length + ' entradas hoy. Agregar las de ayer encima? (Para reemplazar, usa Limpiar primero)')) return;
+  } else {
+    if (!confirm('Copiar ' + entradas.length + ' salidas de ' + ayer + ' al programa de hoy ' + fecha + '? Las horas de ingreso se borraran.')) return;
+  }
+
+  var count = 0;
+  entradas.forEach(function(e) {
+    var v = e[1];
+    // Copy entry but clear ingreso, salidaReal — only keep horaSal, unit, chofer
+    var nueva = {
+      unit:    v.unit,
+      chofer:  v.chofer,
+      horaSal: v.horaSal,
+      horaIng: '',       // reset ingreso
+      ts:      Date.now() + count
+    };
+    fbPush('programaDia/' + fecha + '/' + origen, nueva);
+    count++;
+  });
+
+  alert('OK: ' + count + ' salidas copiadas de ' + ayer + ' a ' + fecha + ' (' + origen + '). Ingresos reseteados.');
 }
 
 function exportProgramaCSV() {
@@ -3593,6 +3663,13 @@ function registrarIngresoChofer() {
   });
   playSuccessBeeps();
   setTimeout(checkIngresoChofer, 800);
+}
+
+function scrollToIngresoCard() {
+  var card = el('ingreso-card');
+  if (card && card.style.display !== 'none') {
+    card.scrollIntoView({behavior: 'smooth', block: 'start'});
+  }
 }
 
 // ── FOTO PROGRAMA ──
