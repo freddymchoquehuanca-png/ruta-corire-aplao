@@ -526,6 +526,16 @@ tr:last-child td { border-bottom:none; }
         </div>
       </div>
 
+      <!-- BROADCAST ALERT (shown when supervisor sends message) -->
+      <div id="broadcast-alert" style="display:none;margin-bottom:10px">
+        <div style="background:rgba(251,191,36,.15);border:2px solid var(--amb);border-radius:12px;padding:14px 16px">
+          <div style="font-size:11px;font-weight:800;color:var(--amb);margin-bottom:6px;letter-spacing:1px">📢 AVISO DEL SUPERVISOR</div>
+          <div id="broadcast-msg-display" style="font-size:15px;font-weight:600;line-height:1.5;color:var(--txt)"></div>
+          <div id="broadcast-time-display" style="font-size:10px;color:var(--txt2);margin-top:6px"></div>
+          <button onclick="dismissBroadcast()" style="margin-top:8px;background:rgba(251,191,36,.2);border:1px solid var(--amb);border-radius:6px;color:var(--amb);font-size:11px;padding:4px 12px;cursor:pointer">✓ Visto</button>
+        </div>
+      </div>
+
       <!-- RETOMAR VIAJE CARD (shown when returning mid-trip) -->
       <div id="retomar-card" style="display:none;margin-bottom:12px">
         <div style="background:rgba(79,142,255,.08);border:2px solid var(--blu);border-radius:14px;padding:18px">
@@ -760,13 +770,20 @@ tr:last-child td { border-bottom:none; }
         <button class="sup-tab-btn" id="stb-config" onclick="showSupTab('config',this)"><span class="ico">⚙️</span><span>Config</span></button>
         <button class="sup-tab-btn" id="stb-gps" onclick="showSupTab('gps',this)"><span class="ico">📡</span><span>GPS</span></button>
         <button class="sup-tab-btn" id="stb-incidentes" onclick="showSupTab('incidentes',this)"><span class="ico">🚨</span><span>Incidentes</span></button>
+        <button class="sup-tab-btn" id="stb-programa" onclick="showSupTab('programa',this)"><span class="ico">📅</span><span>Programa</span></button>
         <button class="sup-tab-btn" id="stb-reporte" onclick="showSupTab('reporte',this)"><span class="ico">📊</span><span>Reporte</span></button>
+        <button class="sup-tab-btn" id="stb-broadcast" onclick="showSupTab('broadcast',this)"><span class="ico">📢</span><span>Aviso</span></button>
+        <button class="sup-tab-btn" id="stb-incid" onclick="showSupTab('incid',this)"><span class="ico">🚨</span><span>Incidentes</span></button>
       </div>
 
       <!-- HISTORIAL -->
       <div class="sup-content active" id="sc-historial">
         <div class="card" style="padding:12px;margin-bottom:10px">
           <div class="card-title">🔍 FILTROS</div>
+          <div class="field" style="margin-bottom:8px">
+            <label>BUSCAR CHOFER / UNIDAD</label>
+            <input type="text" id="hist-search" placeholder="Nombre o U01..." oninput="renderHistSup()" style="font-size:14px">
+          </div>
           <div class="frow" style="margin-bottom:8px">
             <div class="field" style="margin:0">
               <label>FECHA</label>
@@ -1012,6 +1029,73 @@ tr:last-child td { border-bottom:none; }
         <div id="inc-lista"></div>
       </div>
 
+      <!-- PROGRAMA SUPERVISOR -->
+      <div class="sup-content" id="sc-programa">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+          <div class="field" style="margin:0">
+            <label>FECHA</label>
+            <input type="date" id="sup-prog-fecha" onchange="renderSupPrograma()" style="font-size:13px">
+          </div>
+          <div style="display:flex;align-items:flex-end;gap:6px">
+            <button onclick="renderSupPrograma()" class="btn btn-blue" style="padding:10px;font-size:12px;flex:1">🔄 Ver</button>
+            <button onclick="supCopiarAyer()" class="btn btn-ghost" style="padding:10px;font-size:12px;flex:1">📋 Copiar ayer</button>
+          </div>
+        </div>
+        <div id="sup-prog-container"></div>
+      </div>
+
+      <!-- BROADCAST -->
+      <div class="sup-content" id="sc-broadcast">
+        <div class="card card-blu">
+          <div class="card-title">📢 AVISO A TODOS LOS CHOFERES</div>
+          <p style="font-size:12px;color:var(--txt2);margin-bottom:10px">El mensaje aparecerá en la pantalla de todos los choferes activos.</p>
+          <div class="field">
+            <label>MENSAJE</label>
+            <textarea id="broadcast-msg" rows="3" placeholder="ej: Desvío por obra en km 12 — usar ruta alterna" style="width:100%;background:var(--ink3);border:1.5px solid var(--wire);border-radius:8px;color:var(--txt);font-family:var(--fs);font-size:14px;padding:10px;outline:none;resize:none"></textarea>
+          </div>
+          <button class="btn btn-blue" onclick="sendBroadcast()" style="padding:12px;font-size:14px">📢 ENVIAR AVISO</button>
+        </div>
+        <div class="card" style="margin-top:8px">
+          <div class="card-title">📋 AVISOS ENVIADOS</div>
+          <div id="broadcast-list" style="font-size:12px;color:var(--txt2)">Sin avisos</div>
+        </div>
+      </div>
+
+      <!-- INCIDENTES -->
+      <div class="sup-content" id="sc-incid">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div style="font-size:11px;font-weight:800;color:var(--txt2);letter-spacing:1px">🚨 REGISTRO DE INCIDENTES</div>
+          <button onclick="exportIncidentesCSV()" class="btn btn-ghost" style="padding:6px 12px;font-size:11px">📥 CSV</button>
+        </div>
+        <!-- Register new -->
+        <div class="card card-red" style="margin-bottom:10px">
+          <div class="card-title">➕ REGISTRAR INCIDENTE</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+            <div class="field" style="margin:0">
+              <label>UNIDAD</label>
+              <select id="inc-unit-sup" style="font-size:14px"></select>
+            </div>
+            <div class="field" style="margin:0">
+              <label>TIPO</label>
+              <select id="inc-tipo-sup" style="font-size:14px">
+                <option value="mecanico">🔧 Mecánico</option>
+                <option value="accidente">💥 Accidente</option>
+                <option value="pasajero">👤 Pasajero</option>
+                <option value="desvio">🛣 Desvío ruta</option>
+                <option value="otro">📝 Otro</option>
+              </select>
+            </div>
+          </div>
+          <div class="field" style="margin-bottom:8px">
+            <label>DESCRIPCIÓN</label>
+            <input type="text" id="inc-desc-sup" placeholder="Describe el incidente..." style="font-size:14px">
+          </div>
+          <button class="btn btn-red" onclick="registrarIncidenteSup()" style="padding:10px;font-size:13px">🚨 REGISTRAR</button>
+        </div>
+        <!-- List -->
+        <div id="incid-list-sup" style="font-size:12px;color:var(--txt2)">Cargando...</div>
+      </div>
+
       <!-- REPORTE -->
       <div class="sup-content" id="sc-reporte">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
@@ -1127,7 +1211,9 @@ var FD = {
   gpsAlerts: {},
   incidents: {},
   report: {},
-  programa: {}
+  programa: {},
+  broadcast: {},
+  incidents: {}
 };
 
 var repMonth = new Date();
@@ -1347,6 +1433,16 @@ function subscribeFB() {
     renderProgramaDia();
     renderProgramaChofer();
     checkIngresoChofer();
+    renderSupPrograma();
+  });
+  DB.ref('broadcast').on('value', function(s) {
+    FD.broadcast = s.val() || {};
+    checkBroadcast();
+    renderBroadcastList();
+  });
+  DB.ref('incidentes').on('value', function(s) {
+    FD.incidents = s.val() || {};
+    renderIncidSup();
   });
 }
 
@@ -1467,6 +1563,201 @@ function startApp() {
   var pcf2 = el('prog-chofer-fecha'); if (pcf2) pcf2.value = today();
   var pu = el('prog-unidad');
   if (pu) { var oh='<option value="">-- Unidad --</option>'; for(var i=1;i<=N;i++) oh+='<option value="'+i+'">U'+pad(i)+'</option>'; pu.innerHTML=oh; }
+}
+
+// ══════════════════════════════════════════════
+// PROGRAMA SUPERVISOR — lista completa
+// ══════════════════════════════════════════════
+function renderSupPrograma() {
+  var container = el('sup-prog-container');
+  if (!container) return;
+  var spf = el('sup-prog-fecha');
+  if (spf && !spf.value) spf.value = today();
+  var fecha = (spf && spf.value) ? spf.value : today();
+
+  var aplData = (FD.programa && FD.programa[fecha] && FD.programa[fecha]['APLAO'])  ? FD.programa[fecha]['APLAO']  : {};
+  var corData = (FD.programa && FD.programa[fecha] && FD.programa[fecha]['CORIRE']) ? FD.programa[fecha]['CORIRE'] : {};
+  var aplArr  = Object.entries(aplData).filter(function(e){ return e[0]!=='_foto'; }).map(function(e){ return Object.assign({_key:e[0],_orig:'APLAO'},e[1]); });
+  var corArr  = Object.entries(corData).filter(function(e){ return e[0]!=='_foto'; }).map(function(e){ return Object.assign({_key:e[0],_orig:'CORIRE'},e[1]); });
+  aplArr.sort(function(a,b){ return (a.horaSal||'').localeCompare(b.horaSal||''); });
+  corArr.sort(function(a,b){ return (a.horaSal||'').localeCompare(b.horaSal||''); });
+
+  var t = now(); var nowMin = t.h*60+t.m; var isToday = fecha===today();
+
+  function buildSupTable(arr, orig) {
+    if (!arr.length) return '<div style="color:var(--txt2);font-size:12px;padding:10px;text-align:center">Sin salidas para '+orig+'</div>';
+    var salidos = arr.filter(function(e){ return !!e.salidaReal; }).length;
+    var h = '<table style="width:100%;border-collapse:collapse;font-size:12px">' +
+      '<thead><tr style="background:var(--ink3);font-size:10px;color:var(--txt2)">' +
+      '<th style="padding:6px 4px">#</th><th style="padding:6px 4px;text-align:left">CHOFER/UNIDAD</th>' +
+      '<th style="padding:6px 4px">ING</th><th style="padding:6px 4px">SAL</th>' +
+      '<th style="padding:6px 4px">REAL</th><th style="padding:6px 4px">MULTA</th>' +
+      '<th style="padding:6px 4px">ACC</th></tr></thead><tbody>';
+    arr.forEach(function(e, idx) {
+      var salMin = txtToMin(e.horaSal||'00:00');
+      var isPast = isToday && salMin < nowMin;
+      var hasSal = !!e.salidaReal;
+      var ingMin = e.horaIng ? txtToMin(e.horaIng) : -1;
+      var multaIng = !e.horaIng && isPast ? 'S/20' : (ingMin >= salMin && ingMin >= 0 ? 'S/10' : (ingMin >= 0 ? '✅' : '--'));
+      var multaColor = multaIng==='S/20'?'var(--red)':multaIng==='S/10'?'var(--amb)':multaIng==='✅'?'var(--grn)':'var(--txt2)';
+      var rowBg = hasSal ? 'background:rgba(34,197,94,.05)' : isPast ? 'background:rgba(255,68,102,.04)' : (idx%2?'background:rgba(255,255,255,.02)':'');
+      h += '<tr style="border-bottom:1px solid var(--wire);'+rowBg+'">' +
+        '<td style="padding:6px 4px;text-align:center;color:var(--txt2)">'+(idx+1)+'</td>' +
+        '<td style="padding:6px 4px"><div style="font-size:12px;font-weight:700">'+(e.chofer||choferName(e.unit||0))+'</div>' +
+          '<div style="font-size:10px;color:var(--txt2)">U'+pad(e.unit||0)+'</div></td>' +
+        '<td style="padding:6px 4px;text-align:center;font-family:var(--fm);font-size:11px;color:'+(ingMin>=0&&ingMin<salMin?'var(--grn)':ingMin>=0?'var(--amb)':'var(--wire2)')+'">'+
+          (e.horaIng||'--')+'</td>' +
+        '<td style="padding:6px 4px;text-align:center;font-family:var(--fm);font-weight:700;color:'+(hasSal?'var(--grn)':isPast?'var(--red)':'var(--txt)')+'">'+
+          (e.horaSal||'--')+'</td>' +
+        '<td style="padding:6px 4px;text-align:center;font-family:var(--fm);font-size:11px;color:var(--grn)">'+
+          (e.salidaReal||'--')+'</td>' +
+        '<td style="padding:6px 4px;text-align:center;font-family:var(--fm);font-size:11px;font-weight:700;color:'+multaColor+'">'+multaIng+'</td>' +
+        '<td style="padding:6px 4px;text-align:center">' +
+          (!e.horaIng ? '<button onclick="supRegIngreso(' + JSON.stringify(orig) + ',' + JSON.stringify(e._key) + ')" style="background:rgba(79,142,255,.2);border:none;border-radius:5px;color:var(--blu);font-size:10px;padding:2px 6px;cursor:pointer">&#x1F550;</button> ' : '') +
+          '<button onclick="delProgramaEntryFrom(' + JSON.stringify(orig) + ',' + JSON.stringify(e._key) + ')" style="background:rgba(255,68,102,.15);border:none;border-radius:5px;color:var(--red);font-size:10px;padding:2px 6px;cursor:pointer">&#x2715;</button>' +
+        '</td></tr>';
+    });
+    h += '</tbody></table>';
+    var summary = '<div style="display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap">' +
+      '<span style="background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.3);border-radius:20px;padding:3px 8px;font-size:10px;font-weight:700;color:var(--grn)">✅ '+salidos+' salieron</span>' +
+      '<span style="background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);border-radius:20px;padding:3px 8px;font-size:10px;font-weight:700;color:var(--amb)">⏳ '+(arr.length-salidos)+' pendientes</span>' +
+      '</div>';
+    return summary + '<div style="border-radius:8px;overflow:hidden;border:1px solid var(--wire)">' + h + '</div>';
+  }
+
+  var html =
+    '<div style="margin-bottom:14px">' +
+      '<div style="font-size:12px;font-weight:800;padding:7px 10px;background:rgba(251,191,36,.1);border-left:3px solid var(--amb);border-radius:6px;margin-bottom:8px;color:var(--amb)">🚌 APLAO → CORIRE · '+aplArr.length+' salidas</div>' +
+      buildSupTable(aplArr,'APLAO') + '</div>' +
+    '<div>' +
+      '<div style="font-size:12px;font-weight:800;padding:7px 10px;background:rgba(79,142,255,.1);border-left:3px solid var(--blu);border-radius:6px;margin-bottom:8px;color:var(--blu)">🚌 CORIRE → APLAO · '+corArr.length+' salidas</div>' +
+      buildSupTable(corArr,'CORIRE') + '</div>';
+
+  container.innerHTML = html;
+}
+
+function supRegIngreso(origen, key) {
+  var t = now(); var defaultTime = pad(t.h)+':'+pad(t.m);
+  var horaReal = prompt('Hora de ingreso:', defaultTime);
+  if (!horaReal) return;
+  var parts = horaReal.split(':'); var h=parseInt(parts[0]),m=parseInt(parts[1]||0);
+  if (isNaN(h)||isNaN(m)||h<0||h>23||m<0||m>59){ alert('Hora invalida'); return; }
+  var fecha = (el('sup-prog-fecha') && el('sup-prog-fecha').value) ? el('sup-prog-fecha').value : today();
+  fbUpd('programaDia/'+fecha+'/'+origen+'/'+key, {horaIng: pad(h)+':'+pad(m)});
+}
+
+function delProgramaEntryFrom(origen, key) {
+  if (!confirm('Eliminar esta entrada?')) return;
+  var fecha = (el('sup-prog-fecha') && el('sup-prog-fecha').value) ? el('sup-prog-fecha').value : today();
+  fbDel('programaDia/'+fecha+'/'+origen+'/'+key);
+}
+
+function supCopiarAyer() {
+  var spf = el('sup-prog-fecha'); var fecha = (spf&&spf.value)?spf.value:today();
+  var parts=fecha.split('-'); var d=new Date(parseInt(parts[0]),parseInt(parts[1])-1,parseInt(parts[2]));
+  d.setDate(d.getDate()-1);
+  var ayer=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+  var count=0;
+  ['APLAO','CORIRE'].forEach(function(orig){
+    var ayerData=(FD.programa&&FD.programa[ayer]&&FD.programa[ayer][orig])?FD.programa[ayer][orig]:{};
+    var entradas=Object.entries(ayerData).filter(function(e){return e[0]!=='_foto';});
+    entradas.forEach(function(e){
+      fbPush('programaDia/'+fecha+'/'+orig, {unit:e[1].unit,chofer:e[1].chofer,horaSal:e[1].horaSal,horaIng:'',ts:Date.now()+count});
+      count++;
+    });
+  });
+  if (count>0) alert('OK: '+count+' salidas copiadas de '+ayer);
+  else alert('No hay programa de ayer ('+ayer+')');
+}
+
+// ══════════════════════════════════════════════
+// BROADCAST
+// ══════════════════════════════════════════════
+function sendBroadcast() {
+  var msg = el('broadcast-msg') ? el('broadcast-msg').value.trim() : '';
+  if (!msg) { alert('Escribe un mensaje'); return; }
+  fbSet('broadcast/current', {msg: msg, hora: now().txt, fecha: today(), ts: Date.now()});
+  fbPush('broadcast/historial', {msg: msg, hora: now().txt, fecha: today(), ts: Date.now()});
+  if (el('broadcast-msg')) el('broadcast-msg').value = '';
+  alert('Aviso enviado a todos los choferes');
+}
+
+function renderBroadcastList() {
+  var list = el('broadcast-list'); if (!list) return;
+  var hist = FD.broadcast && FD.broadcast.historial ? FD.broadcast.historial : {};
+  var arr = Object.values(hist).sort(function(a,b){ return (b.ts||0)-(a.ts||0); }).slice(0,10);
+  if (!arr.length) { list.innerHTML='<div style="color:var(--txt2)">Sin avisos enviados</div>'; return; }
+  list.innerHTML = arr.map(function(v,i){
+    return '<div style="border-bottom:1px solid var(--wire);padding:8px 0">' +
+      '<div style="font-size:12px;font-weight:600">'+v.msg+'</div>' +
+      '<div style="font-size:10px;color:var(--txt2)">'+v.fecha+' '+v.hora+'</div>' +
+      '</div>';
+  }).join('');
+}
+
+function checkBroadcast() {
+  var ba = el('broadcast-alert'); if (!ba) return;
+  var cur = FD.broadcast && FD.broadcast.current ? FD.broadcast.current : null;
+  if (!cur || !cur.msg) { ba.style.display='none'; return; }
+  var dismissed = localStorage.getItem('broadcast_dismissed');
+  if (dismissed === String(cur.ts)) { ba.style.display='none'; return; }
+  var msgEl = el('broadcast-msg-display'); if (msgEl) msgEl.textContent = cur.msg;
+  var timeEl = el('broadcast-time-display'); if (timeEl) timeEl.textContent = cur.fecha+' '+cur.hora;
+  ba.style.display='block';
+  playBeep(880,0.3,0.4);
+}
+
+function dismissBroadcast() {
+  var cur = FD.broadcast && FD.broadcast.current ? FD.broadcast.current : null;
+  if (cur) localStorage.setItem('broadcast_dismissed', String(cur.ts));
+  var ba = el('broadcast-alert'); if (ba) ba.style.display='none';
+}
+
+// ══════════════════════════════════════════════
+// INCIDENTES SUPERVISOR
+// ══════════════════════════════════════════════
+function initIncidSup() {
+  var sel = el('inc-unit-sup'); if (!sel||sel.options.length>1) return;
+  var oh='<option value="">-- Unidad --</option>';
+  for (var i=1;i<=N;i++) oh+='<option value="'+i+'">U'+pad(i)+' - '+choferName(i)+'</option>';
+  sel.innerHTML=oh;
+}
+
+function registrarIncidenteSup() {
+  var unit=parseInt(el('inc-unit-sup')?el('inc-unit-sup').value:0);
+  var tipo=el('inc-tipo-sup')?el('inc-tipo-sup').value:'otro';
+  var desc=el('inc-desc-sup')?el('inc-desc-sup').value.trim():'';
+  if (!unit) { alert('Selecciona una unidad'); return; }
+  if (!desc) { alert('Describe el incidente'); return; }
+  var t=now();
+  fbPush('incidentes', {unit:unit,chofer:choferName(unit),tipo:tipo,desc:desc,hora:t.txt,fecha:today(),ts:Date.now(),registradoPor:'supervisor'});
+  if (el('inc-desc-sup')) el('inc-desc-sup').value='';
+  alert('Incidente registrado');
+}
+
+function renderIncidSup() {
+  var list=el('incid-list-sup'); if (!list) return;
+  var incs=Object.values(FD.incidents||{}).sort(function(a,b){ return (b.ts||0)-(a.ts||0); }).slice(0,30);
+  if (!incs.length) { list.innerHTML='<div style="color:var(--txt2);padding:10px">Sin incidentes registrados</div>'; return; }
+  list.innerHTML=incs.map(function(v){
+    var tipoIco={'mecanico':'🔧','accidente':'💥','pasajero':'👤','desvio':'🛣','otro':'📝'}[v.tipo]||'📝';
+    return '<div style="border-bottom:1px solid var(--wire);padding:10px 0">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">' +
+        '<span style="font-weight:700;font-size:13px">'+tipoIco+' U'+pad(v.unit||0)+' · '+choferName(v.unit||0)+'</span>' +
+        '<span style="font-family:var(--fm);font-size:11px;color:var(--txt2)">'+v.fecha+' '+v.hora+'</span>' +
+      '</div>' +
+      '<div style="font-size:12px;color:var(--txt)">'+v.desc+'</div>' +
+      (v.registradoPor?'<div style="font-size:10px;color:var(--txt2);margin-top:2px">Por: '+v.registradoPor+'</div>':'') +
+      '</div>';
+  }).join('');
+}
+
+function exportIncidentesCSV() {
+  var incs=Object.values(FD.incidents||{}).sort(function(a,b){ return (b.ts||0)-(a.ts||0); });
+  var rows=['Fecha,Hora,Unidad,Chofer,Tipo,Descripcion'];
+  incs.forEach(function(v){ rows.push([v.fecha,v.hora,'U'+pad(v.unit||0),choferName(v.unit||0),v.tipo,'"'+(v.desc||'').replace(/"/g,"'")+'"'].join(',')); });
+  var blob=new Blob([rows.join('\n')],{type:'text/csv'});
+  var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='incidentes.csv'; a.click();
 }
 
 function scrollToCard(cardId) {
@@ -2538,6 +2829,9 @@ function exportMonitorCSV() {
 // SUPERVISOR TABS
 // ════════════════════════════════════════════════════
 function showSupTab(id, btn) {
+  if (id === 'programa') { var spf=el('sup-prog-fecha'); if(spf&&!spf.value)spf.value=today(); renderSupPrograma(); }
+  if (id === 'incid') { initIncidSup(); renderIncidSup(); }
+  if (id === 'broadcast') { renderBroadcastList(); }
   document.querySelectorAll('.sup-content').forEach(function(c){ c.classList.remove('active'); });
   document.querySelectorAll('.sup-tab-btn').forEach(function(b){ b.classList.remove('active'); });
   var sc = el('sc-' + id);
