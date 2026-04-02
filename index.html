@@ -2490,6 +2490,8 @@ function renderHistChofer() {
   viajes.sort(function(a,b){ return txtToMin(a.salida) - txtToMin(b.salida); });
   tbody.innerHTML = viajes.map(function(v) {
     var tard = v.tardTotal || 0;
+    var multa = v.multa !== undefined ? v.multa : (tard > 20 ? 20 : tard);
+    var noMarcado = v.noMarcado || tard > 20;
     return '<tr>' +
       '<td><span class="badge badge-' + (v.origen==='CORIRE'?'blu':'amb') + '">' + v.origen + '</span></td>' +
       '<td class="mono">' + v.salida + '</td>' +
@@ -2497,7 +2499,7 @@ function renderHistChofer() {
       '<td><span class="badge badge-' + ((v.destFinal||v.dest)==='APLAO'?'amb':'blu') + '">' + (v.destFinal||v.dest||'?') + '</span></td>' +
       '<td class="mono">' + (v.llegada || '—') + '</td>' +
       '<td>' + (tard > 0 ? '<span class="badge badge-red">+' + tard + 'min</span>' : '<span class="badge badge-grn">OK</span>') + '</td>' +
-      '<td class="mono">' + (tard > 0 ? 'S/' + tard : '—') + '</td>' +
+      '<td class="mono">' + (multa > 0 ? 'S/' + multa + (noMarcado ? ' (NM)' : '') : '—') + '</td>' +
       '</tr>';
   }).join('');
 }
@@ -2517,7 +2519,10 @@ function renderHistDayCards() {
   if (!sorted.length) { wrap.innerHTML = ''; return; }
   wrap.innerHTML = sorted.map(function(f) {
     var vs = days[f];
-    var multa = vs.reduce(function(s,v){ return s + (v.tardTotal||0); }, 0);
+    var multa = vs.reduce(function(s,v){
+      var t = v.tardTotal||v.tardanza||0;
+      return s + (v.multa !== undefined ? v.multa : (t > 20 ? 20 : t));
+    }, 0);
     var cls = multa > 0 ? 'day-card has-fine' : 'day-card no-fine';
     return '<div class="' + cls + '" onclick="selectDia(\'' + f + '\')">' +
       '<div class="day-card-date">' + f + (f === today() ? ' HOY' : '') + '</div>' +
