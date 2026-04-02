@@ -1170,6 +1170,55 @@ tr:last-child td { border-bottom:none; }
   </div>
 </div>
 
+  <!-- IMPORT MODAL -->
+  <div id="import-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.88);z-index:9999;overflow-y:auto;padding:16px;-webkit-overflow-scrolling:touch">
+    <div style="background:#111827;border-radius:14px;padding:18px;max-width:480px;margin:0 auto;border:1.5px solid #1f2937">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div style="font-size:14px;font-weight:800;color:var(--grn)">📥 IMPORTAR PROGRAMA</div>
+        <button onclick="closeImportModal()" style="background:var(--ink3);border:none;border-radius:6px;color:var(--txt);padding:5px 12px;cursor:pointer;font-size:15px">✕</button>
+      </div>
+      <div style="font-size:11px;color:var(--txt2);margin-bottom:10px;line-height:1.7;background:var(--ink3);border-radius:8px;padding:10px">
+        Pega en <strong style="color:var(--txt)">cualquier formato</strong>:<br>
+        • Tabla: <code>| Oscar | 5:40 | (5:35) |</code><br>
+        • Lista: <code>Oscar 5:40 (5:35)</code><br>
+        • CSV: <code>Oscar,05:40,05:35</code>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+        <div class="field" style="margin:0">
+          <label>ORIGEN</label>
+          <select id="imp-origen" style="font-size:14px">
+            <option value="APLAO">APLAO</option>
+            <option value="CORIRE">CORIRE</option>
+          </select>
+        </div>
+        <div class="field" style="margin:0">
+          <label>FECHA</label>
+          <input type="date" id="imp-fecha" style="font-size:13px">
+        </div>
+      </div>
+      <div style="margin-bottom:10px">
+        <div style="font-size:10px;color:var(--txt2);margin-bottom:5px;font-weight:700">⚡ FRECUENCIA CONTINUA (opcional)</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button onclick="setImpFrec(0,this)"  class="btn-frec active" id="ifrec-0">Sin auto</button>
+          <button onclick="setImpFrec(8,this)"  class="btn-frec" id="ifrec-8">+8min</button>
+          <button onclick="setImpFrec(10,this)" class="btn-frec" id="ifrec-10">+10min</button>
+          <button onclick="setImpFrec(12,this)" class="btn-frec" id="ifrec-12">+12min</button>
+          <button onclick="setImpFrec(15,this)" class="btn-frec" id="ifrec-15">+15min</button>
+        </div>
+        <div style="font-size:10px;color:var(--txt2);margin-top:4px">Con frecuencia genera turnos continuos hasta las 12:00</div>
+      </div>
+      <div class="field" style="margin-bottom:10px">
+        <label>PEGAR PROGRAMA AQUÍ</label>
+        <textarea id="imp-text" rows="7" placeholder="Pega aquí el texto del programa..." style="width:100%;background:var(--ink3);border:1.5px solid var(--wire);border-radius:8px;color:var(--txt);font-family:var(--fm);font-size:12px;padding:10px;outline:none;resize:vertical;line-height:1.6;box-sizing:border-box"></textarea>
+      </div>
+      <div id="imp-preview" style="display:none;margin-bottom:10px;background:var(--ink3);border-radius:8px;padding:10px;font-size:11px;max-height:220px;overflow-y:auto;border:1px solid var(--wire)"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <button class="btn btn-ghost" onclick="previewImport()" style="padding:12px;font-size:13px">👁 Previsualizar</button>
+        <button class="btn btn-blue" onclick="executeImport()" style="padding:13px;font-size:14px;font-weight:800">✅ IMPORTAR</button>
+      </div>
+      <div id="imp-status" style="margin-top:10px;font-size:13px;text-align:center;font-weight:700"></div>
+    </div>
+  </div>
 
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
@@ -1608,8 +1657,12 @@ function renderSupPrograma() {
         '<td style="padding:6px 4px;text-align:center;color:var(--txt2)">'+(idx+1)+'</td>' +
         '<td style="padding:6px 4px"><div style="font-size:12px;font-weight:700">'+(e.chofer||choferName(e.unit||0))+'</div>' +
           '<div style="font-size:10px;color:var(--txt2)">U'+pad(e.unit||0)+'</div></td>' +
-        '<td style="padding:6px 4px;text-align:center;font-family:var(--fm);font-size:11px;color:'+(ingMin>=0&&ingMin<salMin?'var(--grn)':ingMin>=0?'var(--amb)':'var(--wire2)')+'">'+
-          (e.horaIng||'--')+'</td>' +
+        '<td style="padding:6px 4px;text-align:center;font-family:var(--fm);font-size:11px">' +
+          (e.horaIngReal
+            ? '<span style="color:' + (txtToMin(e.horaIngReal)<=(e.horaIng?txtToMin(e.horaIng):txtToMin(e.horaSal||'00:00'))?'var(--grn)':'var(--amb)') + '">' + e.horaIngReal + '</span>'
+            : '<span style="color:var(--wire2)">--</span>') +
+          (e.horaIng ? '<br><span style="color:var(--txt2);font-size:9px">esp:'+e.horaIng+'</span>' : '') +
+        '</td>' +
         '<td style="padding:6px 4px;text-align:center;font-family:var(--fm);font-weight:700;color:'+(hasSal?'var(--grn)':isPast?'var(--red)':'var(--txt)')+'">'+
           (e.horaSal||'--')+'</td>' +
         '<td style="padding:6px 4px;text-align:center;font-family:var(--fm);font-size:11px;color:var(--grn)">'+
@@ -3509,15 +3562,18 @@ function renderProgramaDia() {
     var multaIng = 0;
     var multaColor = 'var(--txt2)';
     var multaTxt = '--';
-    if (!e.horaIng) {
+    // horaIng = programada (expected), horaIngReal = real (registered)
+    var realIng = e.horaIngReal || '';
+    var espIng  = e.horaIng || '';
+    if (!realIng) {
       // No ingreso registered
       multaIng = 20; multaColor = 'var(--red)'; multaTxt = 'S/20';
     } else {
-      // Check if ingreso is late (ingreso >= salida)
-      var ingMin = txtToMin(e.horaIng);
-      var salMin = txtToMin(e.horaSal || '00:00');
-      if (ingMin >= salMin) {
-        multaIng = 10; multaColor = 'var(--amb)'; multaTxt = 'S/10';
+      // Compare real ingreso vs expected ingreso
+      var realIngMin = txtToMin(realIng);
+      var espIngMin  = espIng ? txtToMin(espIng) : txtToMin(e.horaSal||'00:00');
+      if (realIngMin > espIngMin) {
+        multaIng = 10; multaColor = 'var(--amb)'; multaTxt = 'S/10 (+' + (realIngMin-espIngMin) + 'min)';
       } else {
         multaTxt = '✅'; multaColor = 'var(--grn)';
       }
@@ -3613,18 +3669,16 @@ function addProgramaEntryFast() {
 }
 
 function regIngresoProg(key) {
-  // Show time input — default to current time but supervisor can correct it
   var t = now();
   var defaultTime = pad(t.h) + ':' + pad(t.m);
-  var horaReal = prompt('Hora de ingreso del chofer (puedes corregirla):', defaultTime);
+  var horaReal = prompt('Hora real de ingreso del chofer:', defaultTime);
   if (!horaReal) return;
-  // Validate HH:MM format
-  if (!/^\d{1,2}:\d{2}$/.test(horaReal)) { alert('Formato incorrecto. Usa HH:MM (ej: 05:35)'); return; }
   var parts = horaReal.split(':');
-  var h = parseInt(parts[0]), m = parseInt(parts[1]);
-  if (h < 0 || h > 23 || m < 0 || m > 59) { alert('Hora invalida'); return; }
+  var h = parseInt(parts[0]), m = parseInt(parts[1]||0);
+  if (isNaN(h)||h<0||h>23||isNaN(m)||m<0||m>59) { alert('Hora invalida'); return; }
   var horaFmt = pad(h) + ':' + pad(m);
-  fbUpd(progPath(progOrigen()) + '/' + key, {horaIng: horaFmt});
+  // Save as horaIngReal — preserves horaIng (expected/programada)
+  fbUpd(progPath(progOrigen()) + '/' + key, {horaIngReal: horaFmt});
 }
 
 function delProgramaEntry(key) {
@@ -4068,13 +4122,30 @@ function renderProgramaChofer() {
     var totalMulA = misViajes.reduce(function(s,v){
       var t=v.tardTotal||v.tardanza||0; return s+(v.multa!==undefined?v.multa:(t>20?20:t));
     }, 0);
-    html += '<div style="margin-top:4px">' +
+  var ingMulTotal = 0;
+  var myProg = [];
+  ['APLAO','CORIRE'].forEach(function(orig) {
+    var data = (FD.programa && FD.programa[fecha] && FD.programa[fecha][orig]) ? FD.programa[fecha][orig] : {};
+    Object.values(data).forEach(function(v) {
+      if (parseInt(v.unit) === myUnit) myProg.push(v);
+    });
+  });
+  myProg.forEach(function(v) {
+    var espM = v.horaIng ? txtToMin(v.horaIng) : txtToMin(v.horaSal||'00:00');
+    var realM = v.horaIngReal ? txtToMin(v.horaIngReal) : -1;
+    if (realM < 0) ingMulTotal += 20; // no ingreso registrado
+    else if (realM > espM) ingMulTotal += 10; // llegó tarde
+  });
+  var mulTotalAll = totalMulA + ingMulTotal;
+
+  html += '<div style="margin-top:4px">' +
       '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:linear-gradient(135deg,rgba(79,142,255,.12),rgba(79,142,255,.04));border-radius:8px;margin-bottom:8px">' +
         '<div><div style="font-size:12px;font-weight:800;color:var(--blu)">📋 MIS VIAJES HOY · U'+pad(myUnit)+'</div>' +
         '<div style="font-size:10px;color:var(--txt2)">' + misViajes.length + ' viajes realizados</div></div>' +
         '<div style="text-align:right">' +
-          (totalMulA > 0 ? '<div style="font-size:13px;font-weight:800;color:var(--red)">S/'+totalMulA+' multa</div>' : '<div style="font-size:13px;font-weight:800;color:var(--grn)">✅ Sin multa</div>') +
-          (totalTard > 0 ? '<div style="font-size:10px;color:var(--amb)">+'+totalTard+'min total</div>' : '') +
+          (mulTotalAll > 0 ? '<div style="font-size:13px;font-weight:800;color:var(--red)">S/'+mulTotalAll+' multa</div>' : '<div style="font-size:13px;font-weight:800;color:var(--grn)">✅ Sin multa</div>') +
+          (ingMulTotal > 0 ? '<div style="font-size:10px;color:var(--amb)">S/'+ingMulTotal+' ingreso</div>' : '') +
+          (totalTard > 0 ? '<div style="font-size:10px;color:var(--red)">+'+totalTard+'min tard</div>' : '') +
         '</div>' +
       '</div>' +
       '<div style="border-radius:10px;overflow:hidden;border:1px solid var(--wire)">' +
@@ -4133,38 +4204,52 @@ function checkIngresoChofer() {
   });
   if (!found) { card.style.display = 'none'; return; }
   card.style.display = 'block';
-  var info = el('ingreso-info');
+  var info   = el('ingreso-info');
   var btnIng = el('btn-registrar-ingreso');
   var okDiv  = el('ingreso-ok');
+
+  var horaIngReal = found.horaIngReal || '';  // actual registered ingreso
+  var horaIngEsp  = found.horaIng    || '';   // expected/programmed ingreso
+  var horaSal     = found.horaSal    || '--';
+
+  // Multa: compare real vs expected ingreso time
   var multaTxt = '';
-  if (found.horaIng) {
-    var ingMin = txtToMin(found.horaIng), salMin = txtToMin(found.horaSal||'00:00');
-    multaTxt = ingMin >= salMin
-      ? ' <span style="color:var(--amb)">· S/10 tardanza</span>'
-      : ' <span style="color:var(--grn)">· ✅ A tiempo</span>';
+  if (horaIngReal) {
+    var espMin  = horaIngEsp ? txtToMin(horaIngEsp) : txtToMin(horaSal);
+    var realMin = txtToMin(horaIngReal);
+    multaTxt = realMin <= espMin
+      ? ' <span style="color:var(--grn)">✅ A tiempo</span>'
+      : ' <span style="color:var(--amb)">⚠ S/10 tardanza (' + (realMin-espMin) + 'min tarde)</span>';
   }
+
   if (info) info.innerHTML =
     '<span style="color:var(--txt2)">Origen:</span> <strong>' + foundOrigen + '</strong><br>' +
-    '<span style="color:var(--txt2)">Hora salida:</span> <strong style="color:var(--grn);font-family:var(--fm)">' + (found.horaSal||'--') + '</strong><br>' +
-    (found.horaIng
-      ? '<span style="color:var(--txt2)">Ingreso:</span> <strong style="color:var(--grn);font-family:var(--fm)">' + found.horaIng + '</strong>' + multaTxt
-      : '<span style="color:var(--red)">Sin ingreso · Multa S/20 si no marca</span>');
-  if (found.horaIng) {
+    '<span style="color:var(--txt2)">Salida programada:</span> <strong style="color:var(--grn);font-family:var(--fm)">' + horaSal + '</strong><br>' +
+    (horaIngEsp
+      ? '<span style="color:var(--txt2)">Ingreso programado:</span> <strong style="font-family:var(--fm)">' + horaIngEsp + '</strong><br>'
+      : '') +
+    (horaIngReal
+      ? '<span style="color:var(--txt2)">Ingreso real:</span> <strong style="font-family:var(--fm)">' + horaIngReal + '</strong>' + multaTxt
+      : '<span style="color:var(--red)">❌ Sin ingreso · Multa S/20 si no marcas</span>');
+
+  if (horaIngReal) {
     if (btnIng) btnIng.style.display = 'none';
-    if (okDiv)  { okDiv.style.display = 'block'; okDiv.textContent = '✅ Ingreso: ' + found.horaIng; }
+    if (okDiv)  { okDiv.style.display = 'block'; okDiv.textContent = '✅ Ingreso registrado: ' + horaIngReal; }
   } else {
     if (btnIng) btnIng.style.display = 'block';
     if (okDiv)  okDiv.style.display  = 'none';
   }
 }
 
+
 function registrarIngresoChofer() {
   var fecha = today(); var unit = parseInt(SESSION.unit); var t = now();
   ['APLAO','CORIRE'].forEach(function(orig) {
     var data = (FD.programa && FD.programa[fecha] && FD.programa[fecha][orig]) ? FD.programa[fecha][orig] : {};
     Object.entries(data).forEach(function(e) {
-      if (parseInt(e[1].unit) === unit && !e[1].horaIng) {
-        fbUpd('programaDia/' + fecha + '/' + orig + '/' + e[0], {horaIng: t.txt});
+      if (parseInt(e[1].unit) === unit && !e[1].horaIngReal) {
+        // Save real ingreso — preserves horaIng (programmed expected time)
+        fbUpd('programaDia/' + fecha + '/' + orig + '/' + e[0], {horaIngReal: t.txt});
       }
     });
   });
