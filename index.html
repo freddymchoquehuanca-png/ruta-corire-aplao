@@ -952,10 +952,13 @@ tr:last-child td { border-bottom:none; }
               <input type="hidden" id="prog-chofer-nom">
               <button class="btn btn-blue" onclick="addProgramaEntryFast()" style="padding:12px;font-size:14px;font-weight:800">➕ AGREGAR</button>
             </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
               <button class="btn btn-ghost" onclick="clearProgramaDia()" style="padding:8px;font-size:11px">🗑 Limpiar</button>
               <button class="btn btn-blue" onclick="exportProgramaCSV()" style="padding:8px;font-size:11px">📥 CSV</button>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px">
               <button class="btn" onclick="copiarDiaAnterior()" style="padding:8px;font-size:11px;background:rgba(251,191,36,.15);border:1.5px solid var(--amb);color:var(--amb);border-radius:10px;cursor:pointer;font-weight:700">📋 Copiar ayer</button>
+              <button class="btn" onclick="showImportModal()" style="padding:8px;font-size:11px;background:rgba(34,197,94,.12);border:1.5px solid var(--grn);color:var(--grn);border-radius:10px;cursor:pointer;font-weight:700">📥 Importar texto</button>
             </div>
             <!-- FOTO + COMENTARIO -->
             <div style="background:var(--ink);border-radius:10px;padding:12px">
@@ -3632,6 +3635,211 @@ function delProgramaEntry(key) {
 function clearProgramaDia() {
   if (!confirm('¿Limpiar todo el programa de ' + progOrigen() + ' del día ' + progFecha() + '?')) return;
   fbDel(progPath(progOrigen()));
+}
+
+// ══════════════════════════════════════════════
+// IMPORTAR PROGRAMA DESDE TEXTO
+// ══════════════════════════════════════════════
+var _impFrec = 0;
+var _parsedEntries = [];
+
+function showImportModal() {
+  var modal = el('import-modal');
+  if (!modal) return;
+  // Pre-fill fecha and origen from current prog form
+  var impF = el('imp-fecha');
+  var progF = el('prog-fecha');
+  if (impF) impF.value = (progF && progF.value) ? progF.value : today();
+  var impO = el('imp-origen');
+  var progO = el('prog-origen');
+  if (impO && progO) impO.value = progO.value || 'APLAO';
+  modal.style.display = 'block';
+}
+
+function closeImportModal() {
+  var modal = el('import-modal');
+  if (modal) modal.style.display = 'none';
+  _parsedEntries = [];
+}
+
+function setImpFrec(min, btn) {
+  _impFrec = min;
+  document.querySelectorAll('[id^="ifrec-"]').forEach(function(b){ b.classList.remove('active'); });
+  if (btn) btn.classList.add('active');
+}
+
+function parseImportText(text) {
+  var entries = [];
+  var lines = text.split('\n');
+
+  lines.forEach(function(line) {
+    line = line.trim();
+    if (!line || line.startsWith('#') || line.startsWith('|---') || line === '---') return;
+
+    // Normalize: remove markdown | at start/end
+    var clean = line.replace(/^\||\|$/g, '').trim();
+    // Skip header rows
+    if (/^#\s*\|?\s*(conductor|chofer|nombre|unidad)/i.test(clean)) return;
+    if (/conductor|chofer|nombre.*salida/i.test(clean)) return;
+
+    // Extract time patterns HH:MM or H:MM
+    var times = clean.match(/(\d{1,2}:\d{2})/g) || [];
+    // Extract name — first word-group before first time
+    var nameMatch = clean.match(/^[\|\s]*(?:\d+[\.\-\)]?\s*)?([A-Za-záéíóúüñÁÉÍÓÚÜÑ\s]+?)(?=\d{1,2}:\d{2}|,|\|)/);
+    var name = nameMatch ? nameMatch[1].trim() : '';
+    // Clean up name
+    name = name.replace(/^[\d\.\-\)\s]+/, '').trim();
+    if (!name || name.length < 2) return;
+
+    var horaSal = times[0] ? normTime(times[0]) : '';
+    var horaIng = times[1] ? normTime(times[1]) : '';
+
+    if (!horaSal) return;
+
+    // Lookup unit
+    var unitNum = lookupUnit(name);
+    entries.push({
+      chofer:  name.toUpperCase(),
+      unit:    unitNum,
+      horaSal: horaSal,
+      horaIng: horaIng
+    });
+  });
+
+  return entries;
+}
+
+function normTime(t) {
+  var p = t.split(':');
+  return pad(parseInt(p[0])) + ':' + pad(parseInt(p[1]||0));
+}
+
+function lookupUnit(name) {
+  var UNITS = {
+    'TOYOTA':1,'ENRIQUE':2,'SALVADOR':3,'VICTOR':4,'OSCAR':5,
+    'CHINA':6,'GILMER':7,'AYERVI':8,'ALEX':9,'SANTIAGO':10,
+    'APAZA':11,'RUIS':12,'PASCUALA':13,'JAVIER':14,'QUINCE':15,
+    'MARIO':16,'FLORA':17,'ELSA':18,'NISSAN':19,'ZEVALLOS':20
+  };
+  var upper = name.toUpperCase().trim();
+  if (UNITS[upper]) return UNITS[upper];
+  // Try partial match
+  var keys = Object.keys(UNITS);
+  for (var i=0; i<keys.length; i++) {
+    if (upper.indexOf(keys[i])>=0 || keys[i].indexOf(upper)>=0) return UNITS[keys[i]];
+  }
+  // Try from Firebase choferes config
+  var choferes = (FD.config && FD.config.choferes) ? FD.config.choferes : {};
+  for (var u in choferes) {
+    if ((choferes[u]||'').toUpperCase().indexOf(upper)>=0) return parseInt(u);
+  }
+  return 0;
+}
+
+function addMin(hhmm, mins) {
+  var p = (hhmm||'00:00').split(':');
+  var total = parseInt(p[0])*60 + parseInt(p[1]) + mins;
+  return pad(Math.floor(total/60)%24) + ':' + pad(total%60);
+}
+
+function generateRotation(baseEntries, frecMin, endHora) {
+  if (!frecMin || !baseEntries.length) return baseEntries;
+  var all = baseEntries.slice();
+  var lastTime = all[all.length-1].horaSal;
+  var endMin = 12*60; // hasta 12:00
+  if (endHora) endMin = parseInt(endHora.split(':')[0])*60+parseInt(endHora.split(':')[1]);
+  var rotIdx = 0;
+  var rotNames = baseEntries.map(function(e){ return {chofer:e.chofer, unit:e.unit}; });
+
+  while (true) {
+    var nextTime = addMin(lastTime, frecMin);
+    var nextMin = parseInt(nextTime.split(':')[0])*60+parseInt(nextTime.split(':')[1]);
+    if (nextMin > endMin) break;
+    var rot = rotNames[rotIdx % rotNames.length];
+    all.push({chofer: rot.chofer, unit: rot.unit, horaSal: nextTime, horaIng: ''});
+    lastTime = nextTime;
+    rotIdx++;
+    if (all.length > 100) break; // safety
+  }
+  return all;
+}
+
+function previewImport() {
+  var text = el('imp-text') ? el('imp-text').value : '';
+  if (!text.trim()) { el('imp-status').textContent = '⚠ Pega el texto primero'; return; }
+
+  _parsedEntries = parseImportText(text);
+  if (_impFrec > 0) _parsedEntries = generateRotation(_parsedEntries, _impFrec, '12:00');
+
+  var prev = el('imp-preview');
+  if (!prev) return;
+
+  if (!_parsedEntries.length) {
+    prev.style.display = 'block';
+    prev.innerHTML = '<div style="color:var(--red)">❌ No se pudo leer el texto. Verifica el formato.</div>';
+    return;
+  }
+
+  var html = '<div style="font-weight:700;margin-bottom:6px;color:var(--grn)">✅ ' + _parsedEntries.length + ' entradas detectadas:</div>';
+  html += '<table style="width:100%;border-collapse:collapse">' +
+    '<thead><tr style="color:var(--txt2);border-bottom:1px solid var(--wire)">' +
+    '<th style="padding:3px 4px">#</th><th style="padding:3px 4px;text-align:left">Chofer</th>' +
+    '<th style="padding:3px 4px">Unidad</th><th style="padding:3px 4px">Salida</th><th style="padding:3px 4px">Ingreso</th>' +
+    '</tr></thead><tbody>';
+
+  _parsedEntries.forEach(function(e, i) {
+    var hasUnit = e.unit > 0;
+    html += '<tr style="border-bottom:1px solid rgba(255,255,255,.05)">' +
+      '<td style="padding:3px 4px;color:var(--txt2)">' + (i+1) + '</td>' +
+      '<td style="padding:3px 4px;font-weight:600">' + e.chofer + '</td>' +
+      '<td style="padding:3px 4px;text-align:center">' +
+        (hasUnit ? '<span style="color:var(--blu)">U'+pad(e.unit)+'</span>' : '<span style="color:var(--red)">?</span>') +
+      '</td>' +
+      '<td style="padding:3px 4px;font-family:var(--fm);color:var(--grn);font-weight:700">' + e.horaSal + '</td>' +
+      '<td style="padding:3px 4px;font-family:var(--fm);color:var(--txt2)">' + (e.horaIng||'--') + '</td>' +
+      '</tr>';
+  });
+
+  html += '</tbody></table>';
+  var noUnit = _parsedEntries.filter(function(e){ return !e.unit; }).length;
+  if (noUnit > 0) html += '<div style="color:var(--amb);margin-top:6px">⚠ ' + noUnit + ' conductor(es) sin unidad asignada — se guardará con U00. Actualiza sus nombres en Config → Choferes.</div>';
+
+  prev.style.display = 'block';
+  prev.innerHTML = html;
+  el('imp-status').textContent = '';
+}
+
+function executeImport() {
+  if (!_parsedEntries.length) {
+    previewImport();
+    if (!_parsedEntries.length) return;
+  }
+
+  var origen = el('imp-origen') ? el('imp-origen').value : progOrigen();
+  var fecha  = el('imp-fecha')  ? el('imp-fecha').value  : progFecha();
+
+  if (!confirm('Importar ' + _parsedEntries.length + ' salidas a ' + origen + ' del ' + fecha + '?')) return;
+
+  var status = el('imp-status');
+  if (status) status.textContent = 'Subiendo...';
+
+  _parsedEntries.forEach(function(e, i) {
+    fbPush('programaDia/' + fecha + '/' + origen, {
+      unit:    e.unit,
+      chofer:  e.chofer,
+      horaSal: e.horaSal,
+      horaIng: e.horaIng || '',
+      ts:      Date.now() + i
+    });
+  });
+
+  setTimeout(function() {
+    if (status) { status.style.color = 'var(--grn)'; status.textContent = '✅ ' + _parsedEntries.length + ' entradas importadas'; }
+    // Sync prog form fecha/origen
+    var pf = el('prog-fecha'); if (pf) pf.value = fecha;
+    var po = el('prog-origen'); if (po) po.value = origen;
+    setTimeout(closeImportModal, 1500);
+  }, 800);
 }
 
 function copiarDiaAnterior() {
