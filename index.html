@@ -4022,7 +4022,7 @@ function renderProgramaChofer() {
     var summ = '<div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">' +
       '<span style="background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.4);border-radius:20px;padding:4px 10px;font-size:11px;font-weight:700;color:var(--grn)">✅ ' + salidos + ' salieron</span>' +
       '<span style="background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.4);border-radius:20px;padding:4px 10px;font-size:11px;font-weight:700;color:var(--amb)">⏳ ' + pendientes + ' pendientes</span>' +
-      (nextI >= 0 ? '<span style="background:rgba(79,142,255,.15);border:1px solid var(--blu);border-radius:20px;padding:4px 10px;font-size:11px;font-weight:700;color:var(--blu)">🔜 ' + (arr[nextI].horaSal) + ' próximo</span>' : '') +
+      (nextI >= 0 ? '<span style="background:rgba(79,142,255,.15);border:1px solid var(--blu);border-radius:20px;padding:4px 10px;font-size:11px;font-weight:700;color:var(--blu)">🔜 ' + arr[nextI].horaSal + ' próximo</span>' : '') +
       '</div>';
 
     var rows = '';
@@ -4032,44 +4032,57 @@ function renderProgramaChofer() {
       var isPast   = isToday && salMin < nowMin;
       var isNext   = idx === nextI;
       var hasSal   = !!e.salidaReal;
-      var ingMin   = e.horaIng ? txtToMin(e.horaIng) : -1;
-      var ingOk    = ingMin >= 0 && ingMin < salMin;
-      var ingLate  = ingMin >= 0 && ingMin >= salMin;
+      var realIng  = e.horaIngReal || '';
+      var espIng   = e.horaIng || '';
       var freq     = '--';
       if (idx > 0) { var d = salMin - txtToMin(arr[idx-1].horaSal||'00:00'); if (d>0) freq=d+'min'; }
 
-      // Row background
-      var rowBg = isMe      ? 'background:rgba(79,142,255,.13);border-left:3px solid var(--blu)' :
-                  isNext    ? 'background:rgba(251,191,36,.08);border-left:3px solid var(--amb)' :
-                  hasSal    ? 'background:rgba(34,197,94,.05)' :
-                  isPast    ? 'background:rgba(255,68,102,.04)' :
+      // Ingreso status
+      var ingStatus = '';
+      var ingBadge  = '';
+      if (realIng) {
+        var espM = espIng ? txtToMin(espIng) : salMin;
+        var realM = txtToMin(realIng);
+        if (realM <= espM) {
+          ingBadge = '<span style="background:rgba(34,197,94,.2);color:var(--grn);border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700">ING ' + realIng + ' ✅</span>';
+        } else {
+          ingBadge = '<span style="background:rgba(251,191,36,.2);color:var(--amb);border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700">ING ' + realIng + ' S/10</span>';
+        }
+      } else if (espIng) {
+        ingBadge = '<span style="background:rgba(255,255,255,.06);color:var(--txt2);border-radius:4px;padding:1px 6px;font-size:10px">esp ' + espIng + (isPast ? ' · S/20' : '') + '</span>';
+        if (isPast) ingBadge = '<span style="background:rgba(255,68,102,.15);color:var(--red);border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700">S/20 sin ingreso</span>';
+      }
+
+      // Row style
+      var rowBg = isMe   ? 'background:rgba(79,142,255,.13);border-left:3px solid var(--blu)' :
+                  isNext ? 'background:rgba(251,191,36,.08);border-left:3px solid var(--amb)' :
+                  hasSal ? 'background:rgba(34,197,94,.04)' :
+                  isPast ? 'background:rgba(255,68,102,.04)' :
                   (idx%2===0 ? '' : 'background:rgba(255,255,255,.02)');
 
-      // Name + unit
-      var nameCell = '<div style="font-size:14px;font-weight:' + (isMe||isNext?'800':'600') + ';color:' + (isMe?'var(--blu)':isNext?'var(--amb)':'var(--txt)') + ';line-height:1.2">' +
-        (e.chofer||choferName(e.unit||0)) +
-        (isMe  ? ' <span style="font-size:9px;font-weight:700;background:var(--blu);color:#fff;padding:1px 5px;border-radius:10px">YO</span>' : '') +
-        (isNext && !isMe ? ' <span style="font-size:9px;font-weight:700;background:var(--amb);color:#000;padding:1px 5px;border-radius:10px">PRÓX</span>' : '') +
-        '</div>' +
-        '<div style="font-size:10px;color:var(--txt2)">U'+pad(e.unit||0)+'</div>';
+      // Salida display
+      var salColor = hasSal ? 'var(--grn)' : isPast ? 'var(--red)' : 'var(--txt)';
+      var salExtra = hasSal ? '<div style="font-size:9px;color:var(--grn)">✓ sal ' + e.salidaReal + '</div>' : '';
 
-      // Salida cell
-      var salCell = '<div style="font-family:var(--fm);font-size:15px;font-weight:800;color:' + (hasSal?'var(--grn)':isPast?'var(--red)':'var(--txt)') + ';line-height:1.2">' + (e.horaSal||'--') + '</div>' +
-        (hasSal ? '<div style="font-size:9px;color:var(--grn)">✓ sal '+e.salidaReal+'</div>' : '') +
-        (!hasSal && isPast ? '<div style="font-size:9px;color:var(--red)">sin salida</div>' : '');
-
-      // Ingreso cell
-      var ingCell = ingOk   ? '<div style="font-family:var(--fm);font-size:13px;color:var(--grn);font-weight:700">' + e.horaIng + '</div><div style="font-size:9px;color:var(--grn)">✅ a tiempo</div>' :
-                   ingLate  ? '<div style="font-family:var(--fm);font-size:13px;color:var(--amb);font-weight:700">' + e.horaIng + '</div><div style="font-size:9px;color:var(--amb)">S/10 tarde</div>' :
-                   isPast   ? '<div style="font-size:12px;color:var(--red)">--</div><div style="font-size:9px;color:var(--red)">S/20</div>' :
-                              '<div style="font-size:11px;color:var(--wire2)">--</div>';
-
-      rows += '<tr style="border-bottom:1px solid var(--wire);' + rowBg + '">' +
-        '<td style="padding:8px 4px;text-align:center;font-size:11px;color:var(--txt2);font-weight:700">' + (idx+1) + '</td>' +
-        '<td style="padding:8px 6px">' + nameCell + '</td>' +
-        '<td style="padding:8px 4px;text-align:center">' + salCell + '</td>' +
-        '<td style="padding:8px 4px;text-align:center">' + ingCell + '</td>' +
-        '<td style="padding:8px 4px;text-align:center;font-size:11px;color:var(--txt2)">' + freq + '</td>' +
+      rows +=
+        '<tr style="border-bottom:1px solid var(--wire);' + rowBg + '">' +
+        // Col 1: number
+        '<td style="padding:10px 5px;text-align:center;color:var(--txt2);font-size:11px;width:24px">' + (idx+1) + '</td>' +
+        // Col 2: chofer + ingreso badge (2 lines)
+        '<td style="padding:8px 6px">' +
+          '<div style="font-size:14px;font-weight:' + (isMe||isNext?'800':'600') + ';color:' + (isMe?'var(--blu)':isNext?'var(--amb)':'var(--txt)') + ';line-height:1.2">' +
+            (e.chofer||choferName(e.unit||0)) +
+            (isMe   ? ' <span style="font-size:9px;font-weight:700;background:var(--blu);color:#fff;padding:1px 5px;border-radius:10px">YO</span>' : '') +
+            (isNext && !isMe ? ' <span style="font-size:9px;font-weight:700;background:var(--amb);color:#000;padding:1px 5px;border-radius:10px">PRÓX</span>' : '') +
+          '</div>' +
+          '<div style="font-size:10px;color:var(--txt2);margin-top:1px">U'+pad(e.unit||0)+' · '+freq+'</div>' +
+          (ingBadge ? '<div style="margin-top:4px">' + ingBadge + '</div>' : '') +
+        '</td>' +
+        // Col 3: salida (large)
+        '<td style="padding:8px 8px;text-align:right;min-width:70px">' +
+          '<div style="font-family:var(--fm);font-size:18px;font-weight:800;color:' + salColor + ';line-height:1">' + (e.horaSal||'--') + '</div>' +
+          salExtra +
+        '</td>' +
         '</tr>';
     });
 
@@ -4077,14 +4090,11 @@ function renderProgramaChofer() {
       '<div style="border-radius:10px;overflow:hidden;border:1px solid var(--wire)">' +
       '<table style="width:100%;border-collapse:collapse">' +
       '<thead><tr style="background:var(--ink3)">' +
-      '<th style="padding:7px 4px;font-size:10px;color:var(--txt2);font-weight:700;text-align:center;width:28px">#</th>' +
-      '<th style="padding:7px 6px;font-size:10px;color:var(--txt2);font-weight:700;text-align:left">CHOFER</th>' +
-      '<th style="padding:7px 4px;font-size:10px;color:var(--txt2);font-weight:700;text-align:center">SALIDA</th>' +
-      '<th style="padding:7px 4px;font-size:10px;color:var(--txt2);font-weight:700;text-align:center">INGRESO</th>' +
-      '<th style="padding:7px 4px;font-size:10px;color:var(--txt2);font-weight:700;text-align:center">FREC</th>' +
+      '<th style="padding:6px 5px;font-size:10px;color:var(--txt2);font-weight:700;text-align:center;width:24px">#</th>' +
+      '<th style="padding:6px 6px;font-size:10px;color:var(--txt2);font-weight:700;text-align:left">CHOFER / INGRESO</th>' +
+      '<th style="padding:6px 8px;font-size:10px;color:var(--txt2);font-weight:700;text-align:right">SALIDA</th>' +
       '</tr></thead><tbody>' + rows + '</tbody></table></div>';
   }
-
   var html = '';
 
   if (!showOrig || showOrig === 'APLAO') {
