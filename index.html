@@ -4032,7 +4032,6 @@ function renderProgramaChofer() {
     var pendientes = arr.length - salidos;
     var nextI     = isToday ? nextIdx(arr) : -1;
 
-    // Summary chips
     var summ = '<div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">' +
       '<span style="background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.4);border-radius:20px;padding:4px 10px;font-size:11px;font-weight:700;color:var(--grn)">✅ ' + salidos + ' salieron</span>' +
       '<span style="background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.4);border-radius:20px;padding:4px 10px;font-size:11px;font-weight:700;color:var(--amb)">⏳ ' + pendientes + ' pendientes</span>' +
@@ -4047,66 +4046,61 @@ function renderProgramaChofer() {
       var isNext   = idx === nextI;
       var hasSal   = !!e.salidaReal;
       var realIng  = e.horaIngReal || '';
-      var espIng   = e.horaIng || '';
+      var espIng   = e.horaIng    || '';
       var freq     = '--';
       if (idx > 0) { var d = salMin - txtToMin(arr[idx-1].horaSal||'00:00'); if (d>0) freq=d+'min'; }
 
-      // Ingreso status
-      var ingStatus = '';
-      var ingBadge  = '';
-      if (realIng) {
-        var espM = espIng ? txtToMin(espIng) : salMin;
-        var realM = txtToMin(realIng);
-        if (realM <= espM) {
-          ingBadge = '<span style="background:rgba(34,197,94,.2);color:var(--grn);border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700">ING ' + realIng + ' ✅</span>';
-        } else {
-          ingBadge = '<span style="background:rgba(251,191,36,.2);color:var(--amb);border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700">ING ' + realIng + ' S/10</span>';
-        }
-      } else if (espIng) {
-        ingBadge = '<span style="background:rgba(255,255,255,.06);color:var(--txt2);border-radius:4px;padding:1px 6px;font-size:10px">esp ' + espIng + (isPast ? ' · S/20' : '') + '</span>';
-        if (isPast) ingBadge = '<span style="background:rgba(255,68,102,.15);color:var(--red);border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700">S/20 sin ingreso</span>';
-      }
-
-      // Row style
+      // Row background
       var rowBg = isMe   ? 'background:rgba(79,142,255,.13);border-left:3px solid var(--blu)' :
                   isNext ? 'background:rgba(251,191,36,.08);border-left:3px solid var(--amb)' :
                   hasSal ? 'background:rgba(34,197,94,.04)' :
                   isPast ? 'background:rgba(255,68,102,.04)' :
                   (idx%2===0 ? '' : 'background:rgba(255,255,255,.02)');
 
-      // Salida display
+      // Salida cell
       var salColor = hasSal ? 'var(--grn)' : isPast ? 'var(--red)' : 'var(--txt)';
-      var salExtra = hasSal ? '<div style="font-size:9px;color:var(--grn)">✓ sal ' + e.salidaReal + '</div>' : '';
+      var salTxt = '<div style="font-family:var(--fm);font-size:15px;font-weight:800;color:' + salColor + ';white-space:nowrap">' + (e.horaSal||'--') + '</div>' +
+        (hasSal ? '<div style="font-size:9px;color:var(--grn)">✓' + e.salidaReal + '</div>' : '');
+
+      // Ingreso cell
+      var ingColor, ingLine1, ingLine2 = '';
+      if (realIng) {
+        var espM = espIng ? txtToMin(espIng) : salMin;
+        ingColor = txtToMin(realIng) <= espM ? 'var(--grn)' : 'var(--amb)';
+        ingLine1 = '<div style="font-family:var(--fm);font-size:13px;font-weight:700;color:' + ingColor + '">' + realIng + '</div>';
+        ingLine2 = txtToMin(realIng) <= espM ? '<div style="font-size:9px;color:var(--grn)">✅ ok</div>' : '<div style="font-size:9px;color:var(--amb)">S/10</div>';
+      } else if (espIng) {
+        ingLine1 = '<div style="font-family:var(--fm);font-size:12px;color:var(--txt2)">' + espIng + '</div>';
+        ingLine2 = isPast ? '<div style="font-size:9px;color:var(--red)">S/20</div>' : '<div style="font-size:9px;color:var(--wire2)">esp</div>';
+      } else {
+        ingLine1 = '<div style="font-size:11px;color:var(--wire2)">--</div>';
+        ingLine2 = isPast ? '<div style="font-size:9px;color:var(--red)">S/20</div>' : '';
+      }
 
       rows +=
         '<tr style="border-bottom:1px solid var(--wire);' + rowBg + '">' +
-        // Col 1: number
-        '<td style="padding:10px 5px;text-align:center;color:var(--txt2);font-size:11px;width:24px">' + (idx+1) + '</td>' +
-        // Col 2: chofer + ingreso badge (2 lines)
-        '<td style="padding:8px 6px">' +
-          '<div style="font-size:14px;font-weight:' + (isMe||isNext?'800':'600') + ';color:' + (isMe?'var(--blu)':isNext?'var(--amb)':'var(--txt)') + ';line-height:1.2">' +
+        '<td style="padding:8px 4px;text-align:center;font-size:11px;color:var(--txt2);width:22px">' + (idx+1) + '</td>' +
+        '<td style="padding:8px 5px;min-width:100px">' +
+          '<div style="font-size:13px;font-weight:' + (isMe||isNext?'800':'600') + ';color:' + (isMe?'var(--blu)':isNext?'var(--amb)':'var(--txt)') + ';white-space:nowrap">' +
             (e.chofer||choferName(e.unit||0)) +
-            (isMe   ? ' <span style="font-size:9px;font-weight:700;background:var(--blu);color:#fff;padding:1px 5px;border-radius:10px">YO</span>' : '') +
-            (isNext && !isMe ? ' <span style="font-size:9px;font-weight:700;background:var(--amb);color:#000;padding:1px 5px;border-radius:10px">PRÓX</span>' : '') +
+            (isMe   ? ' <span style="font-size:9px;background:var(--blu);color:#fff;padding:1px 5px;border-radius:10px">YO</span>' : '') +
+            (isNext && !isMe ? ' <span style="font-size:9px;background:var(--amb);color:#000;padding:1px 5px;border-radius:10px">PRÓX</span>' : '') +
           '</div>' +
-          '<div style="font-size:10px;color:var(--txt2);margin-top:1px">U'+pad(e.unit||0)+' · '+freq+'</div>' +
-          (ingBadge ? '<div style="margin-top:4px">' + ingBadge + '</div>' : '') +
+          '<div style="font-size:10px;color:var(--txt2)">U' + pad(e.unit||0) + ' · ' + freq + '</div>' +
         '</td>' +
-        // Col 3: salida (large)
-        '<td style="padding:8px 8px;text-align:right;min-width:70px">' +
-          '<div style="font-family:var(--fm);font-size:18px;font-weight:800;color:' + salColor + ';line-height:1">' + (e.horaSal||'--') + '</div>' +
-          salExtra +
-        '</td>' +
+        '<td style="padding:8px 5px;text-align:center;min-width:62px">' + salTxt + '</td>' +
+        '<td style="padding:8px 5px;text-align:center;min-width:58px">' + ingLine1 + ingLine2 + '</td>' +
         '</tr>';
     });
 
     return summ +
-      '<div style="border-radius:10px;overflow:hidden;border:1px solid var(--wire)">' +
-      '<table style="width:100%;border-collapse:collapse">' +
+      '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:10px;border:1px solid var(--wire)">' +
+      '<table style="width:100%;min-width:320px;border-collapse:collapse">' +
       '<thead><tr style="background:var(--ink3)">' +
-      '<th style="padding:6px 5px;font-size:10px;color:var(--txt2);font-weight:700;text-align:center;width:24px">#</th>' +
-      '<th style="padding:6px 6px;font-size:10px;color:var(--txt2);font-weight:700;text-align:left">CHOFER / INGRESO</th>' +
-      '<th style="padding:6px 8px;font-size:10px;color:var(--txt2);font-weight:700;text-align:right">SALIDA</th>' +
+      '<th style="padding:7px 4px;font-size:10px;color:var(--txt2);font-weight:700;text-align:center;width:22px">#</th>' +
+      '<th style="padding:7px 5px;font-size:10px;color:var(--txt2);font-weight:700;text-align:left">CHOFER</th>' +
+      '<th style="padding:7px 5px;font-size:10px;color:var(--txt2);font-weight:700;text-align:center">SALIDA</th>' +
+      '<th style="padding:7px 5px;font-size:10px;color:var(--txt2);font-weight:700;text-align:center">INGRESO</th>' +
       '</tr></thead><tbody>' + rows + '</tbody></table></div>';
   }
   var html = '';
