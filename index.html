@@ -3724,44 +3724,58 @@ function setImpFrec(min, btn) {
 
 function parseImportText(text) {
   var entries = [];
-  var lines = text.split('\n');
-
-  lines.forEach(function(line) {
-    line = line.trim();
-    if (!line || line.startsWith('#') || line.startsWith('|---') || line === '---') return;
-
-    // Normalize: remove markdown | at start/end
-    var clean = line.replace(/^\||\|$/g, '').trim();
-    // Skip header rows
-    if (/^#\s*\|?\s*(conductor|chofer|nombre|unidad)/i.test(clean)) return;
-    if (/conductor|chofer|nombre.*salida/i.test(clean)) return;
-
-    // Extract time patterns HH:MM or H:MM
-    var times = clean.match(/(\d{1,2}:\d{2})/g) || [];
-    // Extract name — first word-group before first time
-    var nameMatch = clean.match(/^[\|\s]*(?:\d+[\.\-\)]?\s*)?([A-Za-záéíóúüñÁÉÍÓÚÜÑ\s]+?)(?=\d{1,2}:\d{2}|,|\|)/);
-    var name = nameMatch ? nameMatch[1].trim() : '';
-    // Clean up name
-    name = name.replace(/^[\d\.\-\)\s]+/, '').trim();
-    if (!name || name.length < 2) return;
-
-    var horaSal = times[0] ? normTime(times[0]) : '';
-    var horaIng = times[1] ? normTime(times[1]) : '';
-
-    if (!horaSal) return;
-
-    // Lookup unit
-    var unitNum = lookupUnit(name);
-    entries.push({
-      chofer:  name.toUpperCase(),
-      unit:    unitNum,
-      horaSal: horaSal,
-      horaIng: horaIng
-    });
+  var rawLines = text.split('\n');
+  rawLines.forEach(function(line) {
+    line = line.trim().replace(/,+$/, '');
+    if (!line) return;
+    var lower = line.toLowerCase();
+    if (lower.indexOf('conductor') >= 0 || lower.indexOf('chofer') >= 0 ||
+        lower.indexOf('salida') >= 0 || line.indexOf('---') >= 0) return;
+    line = line.replace(/^\||\|$/g, '').trim();
+    if (!line) return;
+    var parts = line.split(',');
+    var name = '', horaSal = '', horaIng = '', unitNum = 0;
+    function isT(s){ return s && /^\d{1,2}:\d{2}$/.test(s.trim()); }
+    function nT(s){ var p=s.trim().split(':'); return pad(parseInt(p[0]))+':'+pad(parseInt(p[1]||0)); }
+    // FORMAT A: unit,chofer,horaIng,horaSal (15,Quince,5:35,5:40)
+    if (parts.length >= 4 && /^\d{1,2}$/.test(parts[0].trim()) && isT(parts[2]) && isT(parts[3])) {
+      unitNum = parseInt(parts[0].trim()); name = parts[1].trim();
+      horaIng = nT(parts[2]); horaSal = nT(parts[3]);
+    }
+    // FORMAT B: chofer,horaSal,horaIng (Quince,5:40,5:35)
+    else if (parts.length >= 2 && isT(parts[1])) {
+      name = parts[0].trim(); horaSal = nT(parts[1]);
+      if (parts[2] && isT(parts[2])) horaIng = nT(parts[2]);
+    }
+    // FORMAT C: markdown table | # | Chofer | Hora | (Hora) |
+    else if (line.indexOf('|') >= 0) {
+      var cols = line.split('|').map(function(s){ return s.trim(); }).filter(Boolean);
+      cols.forEach(function(col) {
+        var cv = col.replace(/[()]/g,'').trim();
+        if (isT(cv)) { if (!horaSal) horaSal=nT(cv); else if (!horaIng) horaIng=nT(cv); }
+        else if (!name && cv.length>1 && !/^\d+$/.test(cv)) name=cv;
+      });
+    }
+    // FORMAT D: "Oscar 5:40 (5:35)" or "1. Oscar 5:40 (5:35)"
+    else {
+      var noNum = line.replace(/^\d+[.\-):]?\s*/,'');
+      var tArr = []; var tRg = /(\d{1,2}:\d{2})/g; var tm;
+      while ((tm=tRg.exec(noNum))!==null) tArr.push(tm[1]);
+      var ne = noNum.search(/\d{1,2}:\d{2}/);
+      if (ne > 0) name = noNum.substring(0,ne).replace(/[^A-Za-z\u00C0-\u024F\s]/g,'').trim();
+      if (tArr[0]) horaSal = nT(tArr[0]);
+      var paM = line.match(/\((\d{1,2}:\d{2})\)/);
+      if (paM) horaIng = nT(paM[1]);
+      else if (tArr[1]) horaIng = nT(tArr[1]);
+    }
+    name = name.replace(/[^A-Za-z\u00C0-\u024F\s]/g,'').trim();
+    if (!name || name.length < 2 || !horaSal) return;
+    if (!unitNum) unitNum = lookupUnit(name);
+    entries.push({ chofer: name.toUpperCase(), unit: unitNum, horaSal: horaSal, horaIng: horaIng });
   });
-
   return entries;
 }
+
 
 function normTime(t) {
   var p = t.split(':');
